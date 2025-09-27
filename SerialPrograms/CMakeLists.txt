@@ -46,7 +46,7 @@ else()
 endif()
 
 # Determine environment
-if(DEFINED ENV{GITHUB_ACTIONS})
+if(DEFINED ENV{GITHUB_ACTIONS} OR DEFINED ENV{TF_BUILD})
     message(STATUS "Detected CI environment, skipping file deployment")
     set(DEPLOY_FILES FALSE)
 else()
@@ -2524,7 +2524,7 @@ if (APPLE)
 
     # make sure Packages repo, https://github.com/PokemonAutomation/Packages is placed in the same folder as this Arduino-Source repo
     # so the post-build command can copy the resources folder Packages/SerialPrograms/Resources/ into the built app bundle:
-    set(RESOURCES_PATH "${REPO_ROOT_DIR}/../Packages/SerialPrograms/Resources")
+    set(RESOURCES_PATH "${REPO_ROOT_DIR}/Packages/SerialPrograms/Resources")
     message(STATUS "Set Resources folder path from Packages repo: ${RESOURCES_PATH}")
     add_custom_command(
         TARGET SerialPrograms
@@ -2662,8 +2662,8 @@ else() # macOS and Linux
         # First, try to see if there is an ONNX Runtime library built from source.
         # Assume the onnxruntime repo, https://github.com/microsoft/onnxruntime is placed in the same folder as
         # this Arduino-Source repo:
-        set(ONNXRUNTIME_ROOTDIR "${REPO_ROOT_DIR}../onnxruntime/")
-        set(ONNXRUNTIME_HEADER_DIR "${ONNXRUNTIME_ROOTDIR}include/onnxruntime/core/session/")
+        set(ONNXRUNTIME_ROOTDIR "${REPO_ROOT_DIR}/onnxruntime/")
+        set(ONNXRUNTIME_HEADER_DIR "${ONNXRUNTIME_ROOTDIR}/include/onnxruntime/core/session/")
         if(EXISTS "${ONNXRUNTIME_HEADER_DIR}")
             # we have ONNX Runtime built from source
             message("Use ONNX Runtime built from source at ${ONNXRUNTIME_ROOTDIR}")

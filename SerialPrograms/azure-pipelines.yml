@@ -1,0 +1,165 @@
+# azure-pipelines.yml
+# CI pipeline for SerialPrograms
+
+trigger:
+  - azure
+
+pr:
+  - azure
+
+strategy:
+  matrix:
+    windows_msvc:
+      imageName: 'windows-latest'
+      compiler: 'default'
+      qt_version: '6.9.2'
+      qt_version_major: '6'
+      qt_modules: 'qtserialport qtmultimedia'
+      cmake_additional_param: ''
+    windows_clang:
+      imageName: 'windows-latest'
+      compiler: 'clang'
+      qt_version: '6.9.2'
+      qt_version_major: '6'
+      qt_modules: 'qtserialport qtmultimedia'
+      cmake_additional_param: '-T ClangCL'
+    ubuntu_gcc:
+      imageName: 'ubuntu-24.04'
+      compiler: 'gcc'
+      qt_version: '6.9.2'
+      qt_version_major: '6'
+      qt_modules: 'qtserialport qtmultimedia'
+      cmake_additional_param: ''
+    ubuntu_clang:
+      imageName: 'ubuntu-24.04'
+      compiler: 'clang'
+      qt_version: '6.9.2'
+      qt_version_major: '6'
+      qt_modules: 'qtserialport qtmultimedia'
+      cmake_additional_param: '-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++'
+    macos_clang:
+      imageName: 'macos-13'
+      compiler: 'default'
+      qt_version: '6.9.2'
+      qt_version_major: '6'
+      qt_modules: 'qtserialport qtmultimedia'
+      cmake_additional_param: ''
+
+pool:
+  vmImage: $(imageName)
+
+steps:
+  - checkout: self
+    path: Arduino-Source
+    submodules: recursive
+
+  - script: |
+      git clone --recursive https://github.com/PokemonAutomation/Packages Packages
+      echo "Packages directory cloned to:"
+      pwd
+    displayName: 'Clone Packages repository'
+
+  - script: |
+      pip install --upgrade aqtinstall
+      echo "=== Available modules (Windows MSVC) ==="
+      aqt list-qt windows desktop --modules $(qt_version) win64_msvc2022_64 || true
+      echo "=== Installing Qt (Windows MSVC) ==="
+      aqt install-qt --outputdir $(Build.SourcesDirectory)/Qt windows desktop $(qt_version) win64_msvc2022_64 -m qtmultimedia qtserialport
+    displayName: 'Install Qt (Windows MSVC)'
+    condition: and(eq(variables['Agent.OS'], 'Windows_NT'), eq(variables['compiler'], 'default'))
+
+  - script: |
+      pip install --upgrade aqtinstall
+      echo "=== Available modules (Windows Clang) ==="
+      aqt list-qt windows desktop --modules $(qt_version) clang_64 || true
+      echo "=== Installing Qt (Windows Clang) ==="
+      aqt install-qt --outputdir $(Build.SourcesDirectory)/Qt windows desktop $(qt_version) clang_64 -m qtmultimedia qtserialport
+    displayName: 'Install Qt (Windows Clang)'
+    condition: and(eq(variables['Agent.OS'], 'Windows_NT'), eq(variables['compiler'], 'clang'))
+
+  - script: |
+      pip install --upgrade aqtinstall
+      echo "=== Available modules (Linux GCC) ==="
+      aqt list-qt linux desktop --modules $(qt_version) gcc_64 || true
+      echo "=== Installing Qt (Linux GCC) ==="
+      aqt install-qt --outputdir $(Build.SourcesDirectory)/Qt linux desktop $(qt_version) gcc_64 -m qtmultimedia qtserialport
+    displayName: 'Install Qt (Linux GCC)'
+    condition: and(eq(variables['Agent.OS'], 'Linux'), eq(variables['compiler'], 'gcc'))
+
+  - script: |
+      pip install --upgrade aqtinstall
+      echo "=== Available modules (Linux Clang) ==="
+      aqt list-qt linux desktop --modules $(qt_version) clang_64 || true
+      echo "=== Installing Qt (Linux Clang) ==="
+      aqt install-qt --outputdir $(Build.SourcesDirectory)/Qt linux desktop $(qt_version) clang_64 -m qtmultimedia qtserialport
+    displayName: 'Install Qt (Linux Clang)'
+    condition: and(eq(variables['Agent.OS'], 'Linux'), eq(variables['compiler'], 'clang'))
+
+  - script: |
+      pip install --upgrade aqtinstall
+      echo "=== Available modules (macOS Clang) ==="
+      aqt list-qt mac desktop --modules $(qt_version) universal || true
+      echo "=== Installing Qt (macOS Clang) ==="
+      aqt install-qt --outputdir $(Build.SourcesDirectory)/Qt mac desktop $(qt_version) -m qtmultimedia qtserialport
+    displayName: 'Install Qt (macOS Clang)'
+    condition: eq(variables['Agent.OS'], 'Darwin')
+
+  - script: |
+      sudo apt update
+      sudo apt upgrade -y
+      sudo apt install -y libopencv-dev
+    displayName: 'Install dependencies (Linux)'
+    condition: eq(variables['Agent.OS'], 'Linux')
+
+  - script: |
+      brew install opencv onnxruntime
+    displayName: 'Install dependencies (macOS)'
+    condition: eq(variables['Agent.OS'], 'Darwin')
+
+  - script: |
+      cmake -S $(Build.SourcesDirectory)/SerialPrograms -B $(Build.SourcesDirectory)/SerialPrograms/build -DCMAKE_PREFIX_PATH=$(Build.SourcesDirectory)/Qt/$(qt_version)/msvc2022_64/lib/cmake $(cmake_additional_param)
+    displayName: 'Configure CMake (Windows MSVC)'
+    condition: and(eq(variables['Agent.OS'], 'Windows_NT'), eq(variables['compiler'], 'default'))
+
+  - script: |
+      cmake -S $(Build.SourcesDirectory)/SerialPrograms -B $(Build.SourcesDirectory)/SerialPrograms/build -DCMAKE_PREFIX_PATH=$(Build.SourcesDirectory)/Qt/$(qt_version)/clang_64/lib/cmake $(cmake_additional_param)
+    displayName: 'Configure CMake (Windows Clang)'
+    condition: and(eq(variables['Agent.OS'], 'Windows_NT'), eq(variables['compiler'], 'clang'))
+
+  - script: |
+      cmake -S $(Build.SourcesDirectory)/SerialPrograms -B $(Build.SourcesDirectory)/SerialPrograms/build -DCMAKE_PREFIX_PATH=$(Build.SourcesDirectory)/Qt/$(qt_version)/gcc_64/lib/cmake $(cmake_additional_param)
+    displayName: 'Configure CMake (Linux GCC)'
+    condition: and(eq(variables['Agent.OS'], 'Linux'), eq(variables['compiler'], 'default'))
+
+  - script: |
+      cmake -S $(Build.SourcesDirectory)/SerialPrograms -B $(Build.SourcesDirectory)/SerialPrograms/build -DCMAKE_PREFIX_PATH=$(Build.SourcesDirectory)/Qt/$(qt_version)/clang_64/lib/cmake $(cmake_additional_param)
+    displayName: 'Configure CMake (Linux Clang)'
+    condition: and(eq(variables['Agent.OS'], 'Linux'), eq(variables['compiler'], 'clang'))
+
+  - script: |
+      cmake -S $(Build.SourcesDirectory)/SerialPrograms -B $(Build.SourcesDirectory)/SerialPrograms/build -DCMAKE_PREFIX_PATH=$(Build.SourcesDirectory)/Qt/$(qt_version)/macos/lib/cmake $(cmake_additional_param)
+    displayName: 'Configure CMake (macOS)'
+    condition: eq(variables['Agent.OS'], 'Darwin')
+
+  - script: |
+      cmake --build $(Build.SourcesDirectory)/SerialPrograms/build --config RelWithDebInfo --parallel
+    displayName: 'Build'
+
+  - powershell: |
+      robocopy $(Build.SourcesDirectory)/Packages/SerialPrograms/Resources               $(Build.SourcesDirectory)/SerialPrograms/build/Output/Resources /s
+      robocopy $(Build.SourcesDirectory)/Packages/PABotBase/PABotBase-Switch             $(Build.SourcesDirectory)/SerialPrograms/build/Output/PABotBase /s
+      robocopy $(Build.SourcesDirectory)/SerialPrograms/build/RelWithDebInfo             $(Build.SourcesDirectory)/SerialPrograms/build/Output/Binaries *.dll
+      robocopy $(Build.SourcesDirectory)/SerialPrograms/build/RelWithDebInfo             $(Build.SourcesDirectory)/SerialPrograms/build/Output/Binaries SerialPrograms.exe
+      robocopy $(Build.SourcesDirectory)/SerialPrograms/build/RelWithDebInfo             $(Build.SourcesDirectory)/SerialPrograms/build/Output/Binaries SerialPrograms.pdb
+      echo "https://github.com/$(Build.Repository.Name)/commit/$(Build.SourceVersion)" > $(Build.SourcesDirectory)/SerialPrograms/build/Output/version.txt
+      Write-Host "Robocopy exited with exit code:" $LASTEXITCODE
+      if ($LASTEXITCODE -eq 1) { exit 0 } else { exit 1 }
+    displayName: 'Copy resources'
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Serial Programs artifacts'
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
+    inputs:
+      pathToPublish: '$(Build.SourcesDirectory)/SerialPrograms/build/Output'
+      artifactName: 'SerialPrograms-$(Build.BuildId)'
