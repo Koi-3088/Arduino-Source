@@ -72,6 +72,8 @@ steps:
       pip install --upgrade aqtinstall
       echo "=== Available modules (Windows Clang) ==="
       aqt list-qt windows desktop --modules $(qt_version) clang_64 || true
+      echo "=== Available arch (Windows Clang) ==="
+      aqt list-qt windows desktop --arch $(qt_version)
       echo "=== Installing Qt (Windows Clang) ==="
       aqt install-qt --outputdir $(Build.SourcesDirectory)/Qt windows desktop $(qt_version) clang_64 -m qtmultimedia qtserialport
     displayName: 'Install Qt (Windows Clang)'
@@ -81,6 +83,8 @@ steps:
       pip install --upgrade aqtinstall
       echo "=== Available modules (Linux GCC) ==="
       aqt list-qt linux desktop --modules $(qt_version) gcc_64 || true
+      echo "=== Available arch (Linux GCC) ==="
+      aqt list-qt linux desktop --arch $(qt_version)
       echo "=== Installing Qt (Linux GCC) ==="
       aqt install-qt --outputdir $(Build.SourcesDirectory)/Qt linux desktop $(qt_version) gcc_64 -m qtmultimedia qtserialport
     displayName: 'Install Qt (Linux GCC)'
@@ -90,6 +94,8 @@ steps:
       pip install --upgrade aqtinstall
       echo "=== Available modules (Linux Clang) ==="
       aqt list-qt linux desktop --modules $(qt_version) clang_64 || true
+      echo "=== Available arch (Linux Clang) ==="
+      aqt list-qt linux desktop --arch $(qt_version)
       echo "=== Installing Qt (Linux Clang) ==="
       aqt install-qt --outputdir $(Build.SourcesDirectory)/Qt linux desktop $(qt_version) clang_64 -m qtmultimedia qtserialport
     displayName: 'Install Qt (Linux Clang)'
