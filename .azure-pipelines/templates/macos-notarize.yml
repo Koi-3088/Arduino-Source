@@ -92,8 +92,8 @@ stages:
           ZIP_PATH="$(Pipeline.Workspace)/SerialPrograms-MacOS-$(compiler)-$(architecture).zip"
           ENTITLEMENTS_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/SerialPrograms/cmake/MacOSXEntitlements.plist"
 
-          echo "=== Extracting tarball ==="
-          tar -xzf "$(Pipeline.Workspace)/macos-build-${{ parameters.architecture }}.tar.gz"
+          echo "=== Extracting build artifact ==="
+          ditto -x -k "$(Pipeline.Workspace)/macos-build-${{ parameters.architecture }}.zip" "$(Pipeline.Workspace)/Arduino-Source-Internal"
 
           echo "=== Signing app ==="
           codesign --deep --force --options runtime --timestamp --entitlements "$ENTITLEMENTS_DIR" --sign "$SIGN_IDENTITY" "$APP_DIR"
@@ -102,10 +102,10 @@ stages:
           codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 
           echo "Creating ZIP for notarization..."
-          ditto -c -k --keepParent "$APP_DIR" "$ZIP_PATH"
+          ditto -c -k --keepParent "$FOLDER_NAME" "$ZIP_PATH"
         env:
           SIGN_IDENTITY: $(SIGNING_IDENTITY)
-        displayName: 'Codesign, verify, create ZIP'
+        displayName: '(APP) Codesign, verify, create ZIP'
         condition: succeeded()
 
       - script: |
@@ -126,7 +126,7 @@ stages:
           APPLE_ID: $(APPLE_ID)
           APPLE_APP_PW: $(APPLE_APP_PW)
           APPLE_TEAM_ID: $(APPLE_TEAM_ID)
-        displayName: 'Submit for notarization'
+        displayName: '(APP) Submit for notarization'
         condition: succeeded()
 
       - script: |
@@ -160,7 +160,7 @@ stages:
           APPLE_ID: $(APPLE_ID)
           APPLE_APP_PW: $(APPLE_APP_PW)
           APPLE_TEAM_ID: $(APPLE_TEAM_ID)
-        displayName: 'Wait for notarization'
+        displayName: '(APP) Wait for notarization'
         condition: succeeded()
 
       - script: |
@@ -174,26 +174,160 @@ stages:
         condition: succeeded()
 
       - script: |
-          set -e
+          set -euo pipefail
+          export PATH=${{ parameters.macos_path }}
           VERSION="${{ parameters.versionMajor }}.${{ parameters.versionMinor }}.${{ parameters.versionPatch }}"
+          BUILD_TYPE="${{ parameters.buildType }}"
           FOLDER_NAME="SerialPrograms-$VERSION-MacOS-${{ parameters.architecture }}"
+          BASE_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal"
+          DMG_PATH="$(Pipeline.Workspace)/SerialPrograms-MacOS-$(compiler)-$(architecture).dmg"
+          STAGING_DIR="$(Pipeline.Workspace)/dmg-staging"
+          SETTINGS_FILE="$(Pipeline.Workspace)/dmg-settings.py"
+
+          echo "=== Creating DMG staging directory ==="
+          rm -rf "$STAGING_DIR"
+          mkdir -p "$STAGING_DIR"
+          cp -R "$BASE_DIR/$FOLDER_NAME" "$STAGING_DIR/SerialPrograms"
+
+          echo "=== Setting folder icon ==="
+          ICNS_PATH="$STAGING_DIR/SerialPrograms/SerialPrograms.app/Contents/Resources/icon.icns"
+          fileicon set "$STAGING_DIR/SerialPrograms" "$ICNS_PATH"
+          echo "✓ Folder icon set from $ICNS_PATH"
+
+          echo "=== Writing dmgbuild settings ==="
+          printf '%s\n' \
+              "format = 'UDZO'" \
+              "files = [defines['app']]" \
+              "symlinks = {'Applications': '/Applications'}" \
+              "icon_locations = {'SerialPrograms': (150, 175), 'Applications': (490, 175)}" \
+              "background = 'builtin-arrow'" \
+              "window_rect = ((200, 120), (660, 380))" \
+              "icon_size = 100" \
+              "text_size = 12" \
+              "default_view = 'icon-view'" \
+              "show_icon_preview = False" \
+              > "$SETTINGS_FILE"
+
+          echo "=== Creating DMG ==="
+          python3 -m dmgbuild \
+              -s "$SETTINGS_FILE" \
+              -D app="$STAGING_DIR/SerialPrograms" \
+              "SerialPrograms $VERSION-$BUILD_TYPE" \
+              "$DMG_PATH"
+
+          rm -rf "$STAGING_DIR" "$SETTINGS_FILE"
+          echo "=== DMG created: $DMG_PATH ==="
+        displayName: 'Create DMG'
+        condition: succeeded()
+
+      - script: |
+          set -euo pipefail
+          DMG_PATH="$(Pipeline.Workspace)/SerialPrograms-MacOS-$(compiler)-$(architecture).dmg"
+
+          echo "=== Signing DMG ==="
+          codesign --sign "$SIGN_IDENTITY" --timestamp "$DMG_PATH"
+
+          echo "=== Verifying DMG signature ==="
+          codesign --verify --verbose=2 "$DMG_PATH"
+        env:
+          SIGN_IDENTITY: $(SIGNING_IDENTITY)
+        displayName: '(DMG) Codesign, verify'
+        condition: succeeded()
+
+      - script: |
+          set -euo pipefail
+          DMG_PATH="$(Pipeline.Workspace)/SerialPrograms-MacOS-$(compiler)-$(architecture).dmg"
+
+          SUBMIT_JSON=$(xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PW" \
+            --team-id "$APPLE_TEAM_ID" \
+            --output-format json)
+
+          REQUEST_ID=$(echo "$SUBMIT_JSON" | jq -r '.id')
+          [ -n "$REQUEST_ID" ] && [ "$REQUEST_ID" != "null" ]
+
+          echo "##vso[task.setvariable variable=DMG_NOTARY_REQUEST_ID]$REQUEST_ID"
+        env:
+          APPLE_ID: $(APPLE_ID)
+          APPLE_APP_PW: $(APPLE_APP_PW)
+          APPLE_TEAM_ID: $(APPLE_TEAM_ID)
+        displayName: '(DMG) Submit for notarization'
+        condition: succeeded()
+
+      - script: |
+          set -euo pipefail
+          MAX_WAIT=14400
+          INTERVAL=30
+          ELAPSED=0
+
+          while true; do
+            STATUS=$(xcrun notarytool info "$(DMG_NOTARY_REQUEST_ID)" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_PW" \
+              --team-id "$APPLE_TEAM_ID" \
+              --output-format json | jq -r '.status')
+
+            case "$STATUS" in
+              Accepted) break ;;
+              Invalid)
+                xcrun notarytool log "$(DMG_NOTARY_REQUEST_ID)" \
+                  --apple-id "$APPLE_ID" \
+                  --password "$APPLE_APP_PW" \
+                  --team-id "$APPLE_TEAM_ID"
+                exit 1 ;;
+            esac
+
+            sleep "$INTERVAL"
+            ELAPSED=$((ELAPSED + INTERVAL))
+            [ "$ELAPSED" -lt "$MAX_WAIT" ]
+          done
+        env:
+          APPLE_ID: $(APPLE_ID)
+          APPLE_APP_PW: $(APPLE_APP_PW)
+          APPLE_TEAM_ID: $(APPLE_TEAM_ID)
+        displayName: '(DMG) Wait for notarization'
+        condition: succeeded()
+
+      - script: |
+          set -euo pipefail
+          DMG_PATH="$(Pipeline.Workspace)/SerialPrograms-MacOS-$(compiler)-$(architecture).dmg"
+          CACHE_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/cache-notarized"
+
+          echo "=== Stapling notarization ticket to DMG ==="
+          xcrun stapler staple "$DMG_PATH"
+
+          echo "=== Validating staple ==="
+          xcrun stapler validate "$DMG_PATH"
+
+          echo "=== Gatekeeper assessment ==="
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG_PATH"
+
+          echo "=== Moving DMG to cache ==="
+          mkdir -p "$CACHE_DIR"
+          mv "$DMG_PATH" "$CACHE_DIR/"
+        displayName: '(DMG) Staple and verify'
+        condition: succeeded()
+
+      - script: |
+          set -e
+          DMG_NAME="SerialPrograms-MacOS-$(compiler)-$(architecture).dmg"
+          ZIP_NAME="SerialPrograms-MacOS-$(compiler)-$(architecture).zip"
+          CACHE_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/cache-notarized"
           BUILD_TYPE="${{ parameters.buildType }}"
 
-          cd "$(Pipeline.Workspace)/Arduino-Source-Internal"
+          echo "=== Creating a .zip file==="
+          cd "$CACHE_DIR"
+
           if [ "$BUILD_TYPE" = "PrivateBeta" ]; then
               echo "=== Creating password-protected archive for PrivateBeta ==="
-              7z a -tzip -mx=9 "-p$ARTIFACT_PASSWORD" -mem=AES256 "SerialPrograms-MacOS-$(compiler)-$(architecture).zip" "$FOLDER_NAME"
+              7z a -tzip -mx=0 "-p$ARTIFACT_PASSWORD" -mem=AES256 "$ZIP_NAME" "$DMG_NAME"
           else
-              echo "=== Creating .zip with enclosing folder ==="
-              7z a -tzip -mx=9 "SerialPrograms-MacOS-$(compiler)-$(architecture).zip" "$FOLDER_NAME"
+              ditto -c -k "$DMG_NAME" "$ZIP_NAME"
           fi
 
-          echo "=== Creating cache directory and moving zipped archive ==="
-          CACHE_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/cache-notarized"
-          mkdir -p "$CACHE_DIR"
-          mv "$(Pipeline.Workspace)/Arduino-Source-Internal/SerialPrograms-MacOS-$(compiler)-$(architecture).zip" "$CACHE_DIR/"
-
-          echo "=== .zip created with enclosing folder: $FOLDER_NAME ==="
+          rm "$DMG_NAME"
+          echo "=== .zip created for .dmg file ==="
         displayName: 'Create a zipped archive'
         condition: succeeded()
         env:
@@ -207,7 +341,7 @@ stages:
         condition: succeeded()
 
       - task: PublishPipelineArtifact@1
-        displayName: 'Publish notarized app'
+        displayName: 'Publish build artifact'
         inputs:
           targetPath: '$(Pipeline.Workspace)/Arduino-Source-Internal/cache-notarized/SerialPrograms-MacOS-$(compiler)-$(architecture).zip'
           artifact: 'SerialPrograms-MacOS-$(compiler)-$(architecture)'

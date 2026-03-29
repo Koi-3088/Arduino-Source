@@ -103,7 +103,7 @@ stages:
 
   jobs:
   - job: Windows
-    timeoutInMinutes: 30
+    timeoutInMinutes: 45
     cancelTimeoutInMinutes: 1
     displayName: Windows
 
@@ -292,7 +292,7 @@ stages:
 
   jobs:
   - job: Ubuntu
-    timeoutInMinutes: 30
+    timeoutInMinutes: 45
     cancelTimeoutInMinutes: 1
     displayName: Ubuntu
 
@@ -353,30 +353,25 @@ stages:
           export PATH=$(linux_path)
           BUILD_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/build/$(cmake_preset)"
           SRC_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public"
-          APPDIR="$BUILD_DIR/AppDir"
+          APP_DIR="$BUILD_DIR/AppDir"
           BUILD_CACHE_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/build/$(cmake_preset)/cache-build"
 
           echo "=== Clean AppDir ==="
-          rm -rf "$APPDIR"
-          mkdir -p "$APPDIR"
-          mkdir -p "$APPDIR/usr/bin"
-          mkdir -p "$APPDIR/usr/lib"
-          mkdir -p "$APPDIR/usr/share/applications"
-          mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+          rm -rf "$APP_DIR"
+          mkdir -p "$APP_DIR"
+          mkdir -p "$APP_DIR/usr/bin"
+          mkdir -p "$APP_DIR/usr/lib"
+          mkdir -p "$APP_DIR/usr/share/applications"
+          mkdir -p "$APP_DIR/usr/share/icons/hicolor/256x256/apps"
+          mkdir -p "$BUILD_CACHE_DIR"
 
           echo "=== Moving resources ==="
-          mkdir -p "$APPDIR/usr/plugins/iconengines"
-          cp -a "/opt/Qt/$(qt_version)/gcc_64/plugins/iconengines/" "$APPDIR/usr/plugins/iconengines/"
+          mkdir -p "$APP_DIR/usr/plugins/iconengines"
+          cp -a "/opt/Qt/$(qt_version)/gcc_64/plugins/iconengines/" "$APP_DIR/usr/plugins/iconengines/"
 
-          mkdir -p "$APPDIR/usr/bin/Resources"
-          cp -a "$SRC_DIR/Packages/Resources/" "$APPDIR/usr/bin/"
-
-          mkdir -p "$BUILD_CACHE_DIR"
-          cp -a "$SRC_DIR/Packages/Firmware/" "$BUILD_CACHE_DIR/"
-
-          cp "$SRC_DIR/IconResource/SerialPrograms.desktop" "$APPDIR/usr/share/applications/"
-          cp "$SRC_DIR/IconResource/SerialPrograms.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/"
-          cp "$BUILD_DIR/SerialPrograms" "$APPDIR/usr/bin"
+          cp "$SRC_DIR/IconResource/SerialPrograms.desktop" "$APP_DIR/usr/share/applications/"
+          cp "$SRC_DIR/IconResource/SerialPrograms.png" "$APP_DIR/usr/share/icons/hicolor/256x256/apps/"
+          cp "$BUILD_DIR/SerialPrograms" "$APP_DIR/usr/bin"
 
           echo "=== Extracting Discord Social SDK ==="
           DISCORD_ZIP="$SRC_DIR/3rdPartyBinaries/discord_social_sdk_linux.zip"
@@ -386,26 +381,34 @@ stages:
           unzip -q "$DISCORD_ZIP" -d "$SRC_DIR/3rdPartyBinaries"
           DISCORD_SO="$DISCORD_DIR/lib/release/libdiscord_partner_sdk.so"
 
-          echo "=== Downloading linuxdeploy & Qt plugin ==="
+          echo "=== Downloading linuxdeploy, Qt plugin, gstreamer plugin ==="
           cd "$BUILD_DIR"
           wget -nv https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           wget -nv https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
           wget -nv https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          wget -nv https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gstreamer/master/linuxdeploy-plugin-gstreamer.sh
           chmod +x linuxdeploy-*.AppImage
           chmod +x appimagetool-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-gstreamer.sh
 
           echo "=== Running linuxdeploy to package AppImage ==="
+          export QMAKE="/opt/Qt/$(qt_version)/gcc_64/bin/qmake"
+          export EXTRA_QT_PLUGINS="multimedia"
           ./linuxdeploy-x86_64.AppImage \
-              --appdir "AppDir" \
-              -d "$APPDIR/usr/share/applications/SerialPrograms.desktop" \
-              -i "$APPDIR/usr/share/icons/hicolor/256x256/apps/SerialPrograms.png" \
-              -e "$APPDIR/usr/bin/SerialPrograms" \
+              --appdir "$APP_DIR" \
+              -d "$APP_DIR/usr/share/applications/SerialPrograms.desktop" \
+              -i "$APP_DIR/usr/share/icons/hicolor/256x256/apps/SerialPrograms.png" \
+              -e "$APP_DIR/usr/bin/SerialPrograms" \
               -l "$DISCORD_SO" \
               -p qt \
+              -p gstreamer \
               -v 3
 
           echo "=== Removing unnecessary Qt files ==="
-          rm -rf "$APPDIR/usr/translations"
+          rm -rf "$APP_DIR/usr/translations"
+
+          echo "=== Patching AppRun to force GStreamer backend ==="
+          sed -i '2i export QT_MEDIA_BACKEND=gstreamer' "$APP_DIR/AppRun"
 
           echo "=== Packaging AppImage ==="
           ./appimagetool-x86_64.AppImage AppDir
@@ -416,8 +419,10 @@ stages:
           VERSION="${{ parameters.versionMajor }}.${{ parameters.versionMinor }}.${{ parameters.versionPatch }}"
           FOLDER_NAME="SerialPrograms-$VERSION-Ubuntu-x64"
           mkdir -p "$FOLDER_NAME"
-          chmod +x "SerialPrograms-x86_64.AppImage"
-          mv "SerialPrograms-x86_64.AppImage" "$FOLDER_NAME/"
+          mv "SerialPrograms-x86_64.AppImage" "$FOLDER_NAME/SerialPrograms.AppImage"
+          chmod +x "$FOLDER_NAME/SerialPrograms.AppImage"
+          cp -a "$SRC_DIR/Packages/Firmware/" "$FOLDER_NAME/"
+          cp -a "$SRC_DIR/Packages/Resources/" "$FOLDER_NAME/"
 
           BUILD_TYPE="${{ parameters.buildType }}"
             if [ "$BUILD_TYPE" = "PrivateBeta" ]; then
@@ -638,7 +643,7 @@ stages:
     versionMajor: ${{ parameters.versionMajor }}
     versionMinor: ${{ parameters.versionMinor }}
     versionPatch: ${{ parameters.versionPatch }}
-    targetRepo: 'PokemonAutomation/ComputerControl'
+    targetRepo: PokemonAutomation/ComputerControl
     condition: and(succeeded(), eq('${{ parameters.targetOS }}', 'All'), or(eq('${{ parameters.buildType }}', 'Release'), eq('${{ parameters.buildType }}', 'Beta')))
 
 ##########################################

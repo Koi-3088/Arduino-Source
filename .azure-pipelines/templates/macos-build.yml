@@ -157,7 +157,7 @@ stages:
               fi
           done
 
-          echo "=== Creating tarballs for build and symbols ==="
+          echo "=== Creating archives for build and symbols ==="
           mkdir -p "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/build/$(cmake_preset)/cache-build"
           cd "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/build/$(cmake_preset)"
 
@@ -166,13 +166,14 @@ stages:
           mkdir -p "$FOLDER_NAME"
           cp -R SerialPrograms.app "$FOLDER_NAME/"
 
-          echo "=== Moving Firmware to outside of the .app bundle ==="
-          mv "$FOLDER_NAME/SerialPrograms.app/Contents/Firmware" "$FOLDER_NAME/"
-
           echo "=== Removing Scripts folder from .app bundle ==="
           rm -rf "$FOLDER_NAME/SerialPrograms.app/Contents/Scripts"
 
-          tar -czf "cache-build/macos-build-${{ parameters.architecture }}.tar.gz" "$FOLDER_NAME"
+          echo "=== Copying Resources and Firmware ==="
+          cp -R Resources "$FOLDER_NAME/"
+          cp -R Firmware "$FOLDER_NAME/"
+
+          ditto -c -k --keepParent "$FOLDER_NAME" "cache-build/macos-build-${{ parameters.architecture }}.zip"
           tar -czf "cache-symbols/macos-symbols-${{ parameters.architecture }}.tar.gz" cache-symbols/SerialPrograms.dSYM
 
           echo "Deployment complete for $(architecture) with enclosing folder: $FOLDER_NAME"

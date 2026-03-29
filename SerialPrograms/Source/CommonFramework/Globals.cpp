@@ -9,6 +9,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#if defined(__APPLE__)
+#include <CoreFoundation/CFBundle.h>
+#endif
 #include "Globals.h"
 
 namespace PokemonAutomation{
@@ -115,17 +118,34 @@ namespace{
 
 QString get_application_base_dir_path(){
     QString application_dir_path = qApp->applicationDirPath();
-    if (application_dir_path.endsWith(".app/Contents/MacOS")){
-        // a macOS bundle. Change working directory to the folder that hosts the .app folder.
-        QString app_bundle_path = application_dir_path.chopped(15);
-        QString base_folder_path = QFileInfo(app_bundle_path).dir().absolutePath();
-        return base_folder_path;
+#if defined(__APPLE__)
+    //  Use CFBundle to find the .app bundle path. Change working directory to the folder that hosts the .app bundle.
+    CFURLRef bundleURL = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+    if (bundleURL){
+        CFStringRef cfPath = CFURLCopyFileSystemPath(bundleURL, kCFURLPOSIXPathStyle);
+        CFRelease(bundleURL);
+        if (cfPath){
+            QString bundlePath = QDir::cleanPath(QString::fromCFString(cfPath));
+            CFRelease(cfPath);
+            if (bundlePath.endsWith(".app")){
+                return QFileInfo(bundlePath).dir().absolutePath();
+            }
+        }
     }
+#elif defined(__linux__)
+    // a Ubuntu AppImage bundle. Change working directory to the folder that hosts the .AppImage file.
+    QByteArray appImagePath = qgetenv("APPIMAGE");
+    if (!appImagePath.isEmpty()){
+        QFileInfo appImageFileInfo(appImagePath);
+        return appImageFileInfo.dir().absolutePath();
+    }
+#endif
     return application_dir_path;
 }
 std::string get_resource_path(){
     //  Find the resource directory.
-    QString path = get_application_base_dir_path();
+    QString base = get_application_base_dir_path();
+    QString path = base;
     for (size_t c = 0; c < 5; c++){
         QString try_path = path + "/Resources/";
         QFile file(try_path);
@@ -134,11 +154,12 @@ std::string get_resource_path(){
         }
         path += "/..";
     }
-    return (QCoreApplication::applicationDirPath() + "/../Resources/").toStdString();
+    return (base + "/Resources/").toStdString();
 }
 std::string get_training_path(){
     //  Find the training data directory.
-    QString path = get_application_base_dir_path();
+    QString base = get_application_base_dir_path();
+    QString path = base;
     for (size_t c = 0; c < 5; c++){
         QString try_path = path + "/TrainingData/";
         QFile file(try_path);
@@ -147,7 +168,7 @@ std::string get_training_path(){
         }
         path += "/..";
     }
-    return (QCoreApplication::applicationDirPath() + "/../TrainingData/").toStdString();
+    return (base + "/TrainingData/").toStdString();
 }
 
 std::string get_runtime_base_path(){
