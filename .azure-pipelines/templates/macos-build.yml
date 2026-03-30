@@ -72,7 +72,7 @@ stages:
       - script: |
           export PATH=$(macos_path)
           cd "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/SerialPrograms"
-          cmake $(cmake_additional_param) $(cmake_version_params) --preset=$(cmake_preset) --fresh
+          cmake $(cmake_additional_param) $(cmake_version_params) --preset=$(cmake_preset)
         displayName: 'Configure CMake'
         condition: succeeded()
 
