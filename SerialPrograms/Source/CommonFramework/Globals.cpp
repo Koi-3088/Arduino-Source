@@ -134,10 +134,58 @@ QString get_application_base_dir_path(){
     }
 #elif defined(__linux__)
     // a Ubuntu AppImage bundle. Change working directory to the folder that hosts the .AppImage file.
-    QByteArray appImagePath = qgetenv("APPIMAGE");
-    if (!appImagePath.isEmpty()){
-        QFileInfo appImageFileInfo(appImagePath);
-        return appImageFileInfo.dir().absolutePath();
+    QString appdir;
+    {
+        QByteArray appdir_env = qgetenv("APPDIR");
+        if (!appdir_env.isEmpty()) {
+            appdir = QDir::cleanPath(QString::fromLocal8Bit(appdir_env));
+        }
+    }
+
+    auto is_inside_appdir = [&appdir](const QString& path) -> bool {
+        return !appdir.isEmpty() && QDir::cleanPath(path).startsWith(appdir);
+        };
+
+    // APPIMAGE is set by the AppImage Type 2 runtime to the absolute path of the .AppImage file.
+    {
+        QByteArray appimage_env = qgetenv("APPIMAGE");
+        if (!appimage_env.isEmpty()) {
+            QString appimage_path = QString::fromLocal8Bit(appimage_env);
+            if (!is_inside_appdir(appimage_path)) {
+                return QFileInfo(appimage_path).dir().absolutePath();
+            }
+        }
+    }
+
+    // ARGV0 + OWD: reconstruct the .AppImage path from the original invocation.
+    // Only valid if the resolved path is outside the squashfs mount.
+    {
+        QByteArray argv0_env = qgetenv("ARGV0");
+        if (!argv0_env.isEmpty()) {
+            QString argv0str = QString::fromLocal8Bit(argv0_env);
+            QFileInfo fi;
+            if (QDir::isAbsolutePath(argv0str)) {
+                fi = QFileInfo(argv0str);
+            } else {
+                QByteArray owd_env = qgetenv("OWD");
+                if (!owd_env.isEmpty()) {
+                    fi = QFileInfo(QDir::cleanPath(QString::fromLocal8Bit(owd_env) + "/" + argv0str));
+                }
+            }
+            if (fi.exists() && fi.isFile() && !is_inside_appdir(fi.absoluteFilePath())) {
+                return fi.dir().absolutePath();
+            }
+        }
+    }
+
+    // Last resort for AppImage: OWD is the directory the user launched from,
+    // which is where the .AppImage file and Resources/ folder are expected to be.
+    // This avoids falling back to application_dir_path, which is inside the squashfs.
+    if (!appdir.isEmpty()) {
+        QByteArray owd_env = qgetenv("OWD");
+        if (!owd_env.isEmpty()) {
+            return QString::fromLocal8Bit(owd_env);
+        }
     }
 #endif
     return application_dir_path;
