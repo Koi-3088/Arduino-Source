@@ -11,6 +11,8 @@
 #include <QDir>
 #if defined(__APPLE__)
 #include <CoreFoundation/CFBundle.h>
+#elif defined(__linux__)
+#include <QProcessEnvironment>
 #endif
 #include "Globals.h"
 
@@ -133,58 +135,36 @@ QString get_application_base_dir_path(){
         }
     }
 #elif defined(__linux__)
-    // a Ubuntu AppImage bundle. Change working directory to the folder that hosts the .AppImage file.
-    QString appdir;
-    {
-        QByteArray appdir_env = qgetenv("APPDIR");
-        if (!appdir_env.isEmpty()) {
-            appdir = QDir::cleanPath(QString::fromLocal8Bit(appdir_env));
-        }
+    // AppImage type 2 runtime sets $APPIMAGE to the absolute path of the .AppImage
+    // file itself. Its parent directory is where Resources/ lives alongside it.
+    QString appImagePath = QProcessEnvironment::systemEnvironment().value(QStringLiteral("APPIMAGE"));
+    if (!appImagePath.isEmpty()){
+        return QFileInfo(appImagePath).dir().absolutePath();
     }
-
-    auto is_inside_appdir = [&appdir](const QString& path) -> bool {
-        return !appdir.isEmpty() && QDir::cleanPath(path).startsWith(appdir);
-        };
-
-    // APPIMAGE is set by the AppImage Type 2 runtime to the absolute path of the .AppImage file.
-    {
-        QByteArray appimage_env = qgetenv("APPIMAGE");
-        if (!appimage_env.isEmpty()) {
-            QString appimage_path = QString::fromLocal8Bit(appimage_env);
-            if (!is_inside_appdir(appimage_path)) {
-                return QFileInfo(appimage_path).dir().absolutePath();
-            }
-        }
-    }
-
-    // ARGV0 + OWD: reconstruct the .AppImage path from the original invocation.
-    // Only valid if the resolved path is outside the squashfs mount.
-    {
-        QByteArray argv0_env = qgetenv("ARGV0");
-        if (!argv0_env.isEmpty()) {
-            QString argv0str = QString::fromLocal8Bit(argv0_env);
-            QFileInfo fi;
-            if (QDir::isAbsolutePath(argv0str)) {
-                fi = QFileInfo(argv0str);
-            } else {
-                QByteArray owd_env = qgetenv("OWD");
-                if (!owd_env.isEmpty()) {
-                    fi = QFileInfo(QDir::cleanPath(QString::fromLocal8Bit(owd_env) + "/" + argv0str));
+    // $APPIMAGE can be absent with certain launchers or older runtimes.
+    // If $APPDIR is set we are inside an AppImage FUSE mount. Parse
+    // /proc/self/mountinfo to map the mount point back to the source .AppImage
+    // file on disk, then return its parent directory where Resources/ lives.
+    QString appDir = QProcessEnvironment::systemEnvironment().value(QStringLiteral("APPDIR"));
+    if (!appDir.isEmpty()){
+        QFile mountinfo(QStringLiteral("/proc/self/mountinfo"));
+        if (mountinfo.open(QIODevice::ReadOnly | QIODevice::Text)){
+            while (!mountinfo.atEnd()){
+                // Format (fields space-separated, optional tagged fields end at literal " - "):
+                //   mountID parentID major:minor root mountPoint opts [optionals] - fstype source opts
+                QString line = QString::fromUtf8(mountinfo.readLine()).trimmed();
+                int dashSep = line.indexOf(QStringLiteral(" - "));
+                if (dashSep < 0) continue;
+                QStringList pre = line.left(dashSep).split(u' ', Qt::SkipEmptyParts);
+                QStringList post = line.mid(dashSep + 3).split(u' ', Qt::SkipEmptyParts);
+                if (pre.size() < 5 || post.size() < 2) continue;
+                // Decode \040 (octal encoding for spaces used in mountinfo paths)
+                QString mountPoint = pre[4].replace(QStringLiteral("\\040"), QStringLiteral(" "));
+                QString source = post[1].replace(QStringLiteral("\\040"), QStringLiteral(" "));
+                if (mountPoint == appDir && source.endsWith(QStringLiteral(".AppImage"))){
+                    return QFileInfo(source).dir().absolutePath();
                 }
             }
-            if (fi.exists() && fi.isFile() && !is_inside_appdir(fi.absoluteFilePath())) {
-                return fi.dir().absolutePath();
-            }
-        }
-    }
-
-    // Last resort for AppImage: OWD is the directory the user launched from,
-    // which is where the .AppImage file and Resources/ folder are expected to be.
-    // This avoids falling back to application_dir_path, which is inside the squashfs.
-    if (!appdir.isEmpty()) {
-        QByteArray owd_env = qgetenv("OWD");
-        if (!owd_env.isEmpty()) {
-            return QString::fromLocal8Bit(owd_env);
         }
     }
 #endif
