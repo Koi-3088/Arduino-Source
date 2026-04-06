@@ -13,8 +13,8 @@ resources:
 
     - repository: Arduino-Source
       type: github
-      name: PokemonAutomation/Arduino-Source
-      endpoint: PokemonAutomation
+      name: Koi-3088/Arduino-Source
+      endpoint: Koi-3088
 
 variables:
   - group: apple-signing
@@ -369,8 +369,10 @@ stages:
           mkdir -p "$APP_DIR/usr/plugins/iconengines"
           cp -a "/opt/Qt/$(qt_version)/gcc_64/plugins/iconengines/" "$APP_DIR/usr/plugins/iconengines/"
 
+          mkdir -p "$APP_DIR/usr/share/metainfo"
           cp "$SRC_DIR/IconResource/SerialPrograms.desktop" "$APP_DIR/usr/share/applications/"
           cp "$SRC_DIR/IconResource/SerialPrograms.png" "$APP_DIR/usr/share/icons/hicolor/256x256/apps/"
+          cp "$SRC_DIR/IconResource/SerialPrograms.appdata.xml" "$APP_DIR/usr/share/metainfo/"
           cp "$BUILD_DIR/SerialPrograms" "$APP_DIR/usr/bin"
 
           echo "=== Extracting Discord Social SDK ==="
@@ -408,6 +410,7 @@ stages:
           rm -rf "$APP_DIR/usr/translations"
 
           echo "=== Patching AppRun to force GStreamer backend ==="
+          sed -i '2i export PA_APPIMAGE_DIR=$(cd "$(dirname "$APPIMAGE")" && pwd)' "$APP_DIR/AppRun"
           sed -i '2i export QT_MEDIA_BACKEND=gstreamer' "$APP_DIR/AppRun"
 
           echo "=== Packaging AppImage ==="

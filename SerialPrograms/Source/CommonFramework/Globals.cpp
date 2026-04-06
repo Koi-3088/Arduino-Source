@@ -11,8 +11,6 @@
 #include <QDir>
 #if defined(__APPLE__)
 #include <CoreFoundation/CFBundle.h>
-#elif defined(__linux__)
-#include <QProcessEnvironment>
 #endif
 #include "Globals.h"
 
@@ -135,34 +133,35 @@ QString get_application_base_dir_path(){
         }
     }
 #elif defined(__linux__)
-    // AppImage type 2 runtime sets $APPIMAGE to the absolute path of the .AppImage
-    // file itself. Its parent directory is where Resources/ lives alongside it.
-    QString appImagePath = QProcessEnvironment::systemEnvironment().value(QStringLiteral("APPIMAGE"));
-    if (!appImagePath.isEmpty()){
-        return QFileInfo(appImagePath).dir().absolutePath();
+    // Check for AppImage environment variables to find the directory of the AppImage, if running as an AppImage.
+    QByteArray dir = qgetenv("PA_APPIMAGE_DIR");
+    if (!dir.isEmpty()){
+        return QString::fromUtf8(dir);
     }
-    // $APPIMAGE can be absent with certain launchers or older runtimes.
-    // If $APPDIR is set we are inside an AppImage FUSE mount. Parse
-    // /proc/self/mountinfo to map the mount point back to the source .AppImage
-    // file on disk, then return its parent directory where Resources/ lives.
-    QString appDir = QProcessEnvironment::systemEnvironment().value(QStringLiteral("APPDIR"));
-    if (!appDir.isEmpty()){
+    QByteArray path = qgetenv("APPIMAGE");
+    if (!path.isEmpty()){
+        return QDir::cleanPath(QFileInfo(QString::fromUtf8(path)).dir().absolutePath());
+    }
+    QByteArray appDirBytes = qgetenv("APPDIR");
+    if (!appDirBytes.isEmpty()){
+        QString appDir = QString::fromUtf8(appDirBytes);
         QFile mountinfo(QStringLiteral("/proc/self/mountinfo"));
         if (mountinfo.open(QIODevice::ReadOnly | QIODevice::Text)){
             while (!mountinfo.atEnd()){
-                // Format (fields space-separated, optional tagged fields end at literal " - "):
-                //   mountID parentID major:minor root mountPoint opts [optionals] - fstype source opts
                 QString line = QString::fromUtf8(mountinfo.readLine()).trimmed();
                 int dashSep = line.indexOf(QStringLiteral(" - "));
-                if (dashSep < 0) continue;
+                if (dashSep < 0){
+                    continue;
+                }
                 QStringList pre = line.left(dashSep).split(u' ', Qt::SkipEmptyParts);
                 QStringList post = line.mid(dashSep + 3).split(u' ', Qt::SkipEmptyParts);
-                if (pre.size() < 5 || post.size() < 2) continue;
-                // Decode \040 (octal encoding for spaces used in mountinfo paths)
+                if (pre.size() < 5 || post.size() < 2){
+                    continue;
+                }
                 QString mountPoint = pre[4].replace(QStringLiteral("\\040"), QStringLiteral(" "));
                 QString source = post[1].replace(QStringLiteral("\\040"), QStringLiteral(" "));
                 if (mountPoint == appDir && source.endsWith(QStringLiteral(".AppImage"))){
-                    return QFileInfo(source).dir().absolutePath();
+                    return QDir::cleanPath(QFileInfo(source).dir().absolutePath());
                 }
             }
         }
