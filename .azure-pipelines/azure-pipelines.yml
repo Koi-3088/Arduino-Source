@@ -13,8 +13,10 @@ resources:
 
     - repository: Arduino-Source
       type: github
-      name: PokemonAutomation/Arduino-Source
-      endpoint: PokemonAutomation
+      name: Koi-3088/Arduino-Source
+      endpoint: Koi-3088
+      refs:
+        - refs/heads/sleep
 
 variables:
   - group: apple-signing
@@ -57,13 +59,13 @@ stages:
 ###########################################
 #             WAKE-UP SIGNAL              #
 ###########################################
-#- template: templates/wake-signal.yml
-#  parameters:
-#    stageName: Wake_Up_Signal
-#    displayName: 'Send Wake-Up Signal'
-#    dependsOn: []
-#    poolName: AlarmClock
-#    condition: always()
+- template: templates/wake-signal.yml
+  parameters:
+    stageName: Wake_Up_Signal
+    displayName: 'Send Wake-Up Signal'
+    dependsOn: []
+    poolName: AlarmClock
+    condition: always()
 
 ###########################################
 #        SET VERSION BUILD NUMBER         #
@@ -89,7 +91,6 @@ stages:
             echo "##vso[build.addbuildtag]${{ parameters.buildType }}"
           displayName: 'Set Build Number to Version'
 
-
 ###########################################
 #         WINDOWS BUILD JOB               #
 ###########################################
@@ -97,7 +98,7 @@ stages:
 - stage: Windows_Build_x64
   displayName: Windows Build x64
   dependsOn:
-    #- Wake_Up_Signal
+    - Wake_Up_Signal
     - Set_Build_Number
   condition: and(succeeded(), or(eq('${{ parameters.targetOS }}', 'Windows'), eq('${{ parameters.targetOS }}', 'All')))
 
@@ -559,14 +560,14 @@ stages:
 ###########################################
 #                 SLEEP                   #
 ###########################################
-#- template: templates/sleep-signal.yml
-#  parameters:
-#    stageName: Sleep_Signal
-#    displayName: 'Send Sleep Signal'
-#    dependsOn:
-#      - Upload_Debug_Symbols
-#    poolName: AlarmClock
-#    condition: always()
+- template: templates/sleep-signal.yml
+  parameters:
+    stageName: Sleep_Signal
+    displayName: 'Send Sleep Signal'
+    dependsOn:
+      - Upload_Debug_Symbols
+    poolName: AlarmClock
+    condition: always()
 
 ##########################################
 #          ARTIFACT VALIDATION           #
@@ -604,7 +605,7 @@ stages:
     versionMajor: ${{ parameters.versionMajor }}
     versionMinor: ${{ parameters.versionMinor }}
     versionPatch: ${{ parameters.versionPatch }}
-    telemetryRepo: PokemonAutomation/ServerConfigs-PA-SHA
+    telemetryRepo: Koi-3088/ServerConfigs-PA-SHA
     condition: and(succeeded(), eq('${{ parameters.targetOS }}', 'All'), ne('${{ parameters.buildType }}', 'Commit'))
 
 ##########################################
@@ -627,7 +628,7 @@ stages:
     versionMajor: ${{ parameters.versionMajor }}
     versionMinor: ${{ parameters.versionMinor }}
     versionPatch: ${{ parameters.versionPatch }}
-    targetRepo: PokemonAutomation/ComputerControl
+    targetRepo: Koi-3088/ComputerControl
     condition: and(succeeded(), eq('${{ parameters.targetOS }}', 'All'), or(eq('${{ parameters.buildType }}', 'Release'), eq('${{ parameters.buildType }}', 'Beta')))
 
 ##########################################
@@ -645,7 +646,7 @@ stages:
     versionMajor: ${{ parameters.versionMajor }}
     versionMinor: ${{ parameters.versionMinor }}
     versionPatch: ${{ parameters.versionPatch }}
-    versionRepo: PokemonAutomation/ComputerControl
+    versionRepo: Koi-3088/ComputerControl
     condition: |
       and(
         in(dependencies.Manual_Validation.result, 'Succeeded'),

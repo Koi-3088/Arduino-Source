@@ -1,5 +1,6 @@
 # templates/sleep-signal.yml
-# Template for putting Windows/Linux host to sleep
+# Template for putting Windows/Linux host to sleep via USB relay controller
+# AT commands: AT+CH1=1 (close relay), AT+CH1=0 (open relay)
 
 parameters:
   stageName: ''
@@ -15,7 +16,7 @@ stages:
 
     jobs:
       - job: SendSleepSignal
-        displayName: Send Sleep Signal
+        displayName: Send Sleep Signal via Relay
         pool:
           name: ${{ parameters.poolName }}
         timeoutInMinutes: 10
@@ -23,29 +24,13 @@ stages:
           - checkout: none
 
           - script: |
-              if [ -z "$HOST_IP" ] || [ -z "$HOST_PORT" ] || [ -z "$HOST_SECRET" ]; then
-                  echo "❌ One or more required environment variables are missing."
-                  exit 1
-              fi
+              set -e
 
-              URL="http://${HOST_IP}:${HOST_PORT}/sleep/"
-              echo "Sending POST to the host"
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                  -X POST \
-                  -H "X-Auth: ${HOST_SECRET}" \
-                  -H "Content-Length: 0" \
-                  "$URL")
+              echo "📡 Sending sleep signal via USB relay"
+              echo "AT+CH1=1" | sudo tee /dev/ttyUSB0 > /dev/null
+              sleep 0.5
+              echo "AT+CH1=0" | sudo tee /dev/ttyUSB0 > /dev/null
 
-              echo "HTTP response code: $HTTP_CODE"
-              if [[ "$HTTP_CODE" =~ ^2 ]]; then
-                  echo "✅ Sleep signal sent successfully."
-              else
-                  echo "❌ Failed to send sleep signal (HTTP $HTTP_CODE)"
-                  exit 1
-              fi
-            displayName: 'Send Sleep Signal'
+              echo "✅ Sleep signal sent successfully"
+            displayName: 'Send Sleep Signal via Relay'
             condition: succeeded()
-            env:
-              HOST_IP: $(HOST_IP)
-              HOST_PORT: $(HOST_PORT)
-              HOST_SECRET: $(HOST_SECRET)
