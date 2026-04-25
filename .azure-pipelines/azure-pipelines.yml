@@ -57,12 +57,12 @@ parameters:
 stages:
 
 ###########################################
-#             WAKE-UP SIGNAL              #
+#             SLEEP/WAKE SIGNAL           #
 ###########################################
-- template: templates/wake-signal.yml
+- template: templates/sleep-wake-signal.yml
   parameters:
-    stageName: Wake_Up_Signal
-    displayName: 'Send Wake-Up Signal'
+    stageName: Sleep_Wake_Signal
+    displayName: 'Send Sleep/Wake Signal'
     dependsOn: []
     poolName: AlarmClock
     condition: always()
@@ -98,7 +98,7 @@ stages:
 - stage: Windows_Build_x64
   displayName: Windows Build x64
   dependsOn:
-    - Wake_Up_Signal
+    - Sleep_Wake_Signal
     - Set_Build_Number
   condition: and(succeeded(), or(eq('${{ parameters.targetOS }}', 'Windows'), eq('${{ parameters.targetOS }}', 'All')))
 
@@ -288,7 +288,7 @@ stages:
 - stage: Linux_Build_x64
   displayName: Linux Build x64
   dependsOn:
-    - Wake_Up_Signal
+    - Sleep_Wake_Signal
     - Set_Build_Number
   condition: and(succeeded(), or(eq('${{ parameters.targetOS }}', 'Linux'), eq('${{ parameters.targetOS }}', 'All')))
 
@@ -558,12 +558,12 @@ stages:
     condition: succeeded()
 
 ###########################################
-#                 SLEEP                   #
+#             SLEEP/WAKE SIGNAL           #
 ###########################################
-- template: templates/sleep-signal.yml
+- template: templates/sleep-wake-signal.yml
   parameters:
-    stageName: Sleep_Signal
-    displayName: 'Send Sleep Signal'
+    stageName: Sleep_Wake_Signal2
+    displayName: 'Send Sleep/Wake Signal'
     dependsOn:
       - Upload_Debug_Symbols
     poolName: AlarmClock
