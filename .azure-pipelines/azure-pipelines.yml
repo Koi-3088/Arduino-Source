@@ -288,7 +288,7 @@ stages:
 - stage: Linux_Build_x64
   displayName: Linux Build x64
   dependsOn:
-    #- Wake_Up_Signal
+    - Wake_Up_Signal
     - Set_Build_Number
   condition: and(succeeded(), or(eq('${{ parameters.targetOS }}', 'Linux'), eq('${{ parameters.targetOS }}', 'All')))
 

@@ -87,7 +87,7 @@ stages:
             displayName: 'Authenticate with GitHub'
             condition: succeeded()
             env:
-              GITHUB_TOKEN: $(GITHUB_PAT)
+              GITHUB_TOKEN: $(GITHUB_PAT_FORK)
 
           - script: |
               REPO="${{ parameters.targetRepo }}"
@@ -104,7 +104,7 @@ stages:
             displayName: 'Fetch ChangeLog.md'
             condition: succeeded()
             env:
-              GITHUB_TOKEN: $(GITHUB_PAT)
+              GITHUB_TOKEN: $(GITHUB_PAT_FORK)
 
           - script: |
               REPO="${{ parameters.targetRepo }}"
@@ -128,7 +128,7 @@ stages:
             displayName: 'Fetch Latest Commit SHA'
             condition: succeeded()
             env:
-              GITHUB_TOKEN: $(GITHUB_PAT)
+              GITHUB_TOKEN: $(GITHUB_PAT_FORK)
 
           - script: |
               VERSION_TAG="$(VERSION_TAG)"
@@ -306,7 +306,7 @@ stages:
             displayName: 'Create Git Tag'
             condition: succeeded()
             env:
-              GITHUB_TOKEN: $(GITHUB_PAT)
+              GITHUB_TOKEN: $(GITHUB_PAT_FORK)
 
           - script: |
               RELEASE_VERSION="$(RELEASE_VERSION)"
@@ -344,7 +344,7 @@ stages:
             displayName: 'Create GitHub Release'
             condition: succeeded()
             env:
-              GITHUB_TOKEN: $(GITHUB_PAT)
+              GITHUB_TOKEN: $(GITHUB_PAT_FORK)
 
           - script: |
               RELEASE_VERSION="$(RELEASE_VERSION)"
@@ -384,4 +384,4 @@ stages:
             displayName: 'Upload Artifacts to Release'
             condition: succeeded()
             env:
-              GITHUB_TOKEN: $(GITHUB_PAT)
+              GITHUB_TOKEN: $(GITHUB_PAT_FORK)

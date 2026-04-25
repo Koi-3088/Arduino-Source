@@ -36,7 +36,7 @@ stages:
         displayName: 'Authenticate with GitHub'
         condition: succeeded()
         env:
-          GITHUB_TOKEN: $(GITHUB_PAT)
+          GITHUB_TOKEN: $(GITHUB_PAT_FORK)
 
       - script: |
           REPO="${{ parameters.versionRepo }}"
@@ -64,7 +64,7 @@ stages:
         displayName: 'Fetch ChangeLog.md'
         condition: succeeded()
         env:
-          GITHUB_TOKEN: $(GITHUB_PAT)
+          GITHUB_TOKEN: $(GITHUB_PAT_FORK)
 
       - task: PowerShell@2
         name: UpdateVersionJSON
@@ -231,4 +231,4 @@ stages:
             }
         condition: succeeded()
         env:
-          GITHUB_TOKEN: $(GITHUB_PAT)
+          GITHUB_TOKEN: $(GITHUB_PAT_FORK)

@@ -27,9 +27,9 @@ stages:
               set -e
 
               echo "📡 Sending wake signal via USB relay"
-              echo "AT+CH1=1" | sudo tee /dev/ttyUSB0 > /dev/null
+              echo "AT+CH1=1" > /dev/ttyUSB1
               sleep 0.5
-              echo "AT+CH1=0" | sudo tee /dev/ttyUSB0 > /dev/null
+              echo "AT+CH1=0" > /dev/ttyUSB1
 
               echo "✅ Wake signal sent successfully"
             displayName: 'Send Wake-Up Signal via Relay'
