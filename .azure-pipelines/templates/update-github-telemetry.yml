@@ -247,7 +247,7 @@ stages:
                 exit 1
             }
         env:
-          GITHUB_TOKEN: $(GITHUB_PAT)
+          GITHUB_TOKEN: $(GITHUB_PAT_FORK)
           TELEMETRY_KEY_1: $(TELEMETRY_KEY_1)
           TELEMETRY_KEY_2: $(TELEMETRY_KEY_2)
           TELEMETRY_VERSION: "v${{ parameters.versionMajor }}.${{ parameters.versionMinor }}.${{ parameters.versionPatch }}"
