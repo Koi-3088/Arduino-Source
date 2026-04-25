@@ -1,5 +1,6 @@
 # templates/wake-signal.yml
-# Template for waking up the Windows/Linux host
+# Template for waking up the Windows/Linux host via USB relay controller
+# AT commands: AT+CH1=1 (close relay), AT+CH1=0 (open relay)
 
 parameters:
   stageName: ''
@@ -15,7 +16,7 @@ stages:
 
     jobs:
       - job: SendWakeUpSignal
-        displayName: Send Wake-Up Signal
+        displayName: Send Wake-Up Signal via Relay
         pool:
           name: ${{ parameters.poolName }}
         timeoutInMinutes: 10
@@ -23,31 +24,13 @@ stages:
           - checkout: none
 
           - script: |
-              macAddress="${HOST_MAC}"
-              macAddressCleaned=$(echo "$macAddress" | tr -d ':-')
-              if [ ${#macAddressCleaned} -ne 12 ]; then
-                  echo "❌ Invalid MAC address format"
-                  exit 1
-              fi
+              set -e
 
-              magicPacket=""
-              for i in {1..6}; do
-                  magicPacket="${magicPacket}ff"
-              done
+              echo "📡 Sending wake signal via USB relay"
+              echo "AT+CH1=1" | sudo tee /dev/ttyUSB0 > /dev/null
+              sleep 0.5
+              echo "AT+CH1=0" | sudo tee /dev/ttyUSB0 > /dev/null
 
-              for i in {1..16}; do
-                  magicPacket="${magicPacket}${macAddressCleaned}"
-              done
-
-              if [ -n "$HOST_IP" ]; then
-                  echo "$magicPacket" | xxd -r -p | nc -w1 -u "$HOST_IP" 9
-                  echo "✅ Sent directly to $HOST_IP:9"
-              fi
-
-              echo "$magicPacket" | xxd -r -p | nc -b -w1 -u 255.255.255.255 9
-              echo "✅ Sent to global broadcast (255.255.255.255:9)"
-            displayName: 'Send Wake-Up Signal'
+              echo "✅ Wake signal sent successfully"
+            displayName: 'Send Wake-Up Signal via Relay'
             condition: succeeded()
-            env:
-              HOST_MAC: $(HOST_MAC)
-              HOST_IP: $(HOST_IP)
