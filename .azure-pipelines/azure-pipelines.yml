@@ -57,17 +57,6 @@ parameters:
 stages:
 
 ###########################################
-#             SLEEP/WAKE SIGNAL           #
-###########################################
-- template: templates/sleep-wake-signal.yml
-  parameters:
-    stageName: Sleep_Wake_Signal
-    displayName: 'Send Sleep/Wake Signal'
-    dependsOn: []
-    poolName: AlarmClock
-    condition: always()
-
-###########################################
 #        SET VERSION BUILD NUMBER         #
 ###########################################
 
@@ -92,6 +81,25 @@ stages:
           displayName: 'Set Build Number to Version'
 
 ###########################################
+#             WAKE SIGNAL                 #
+###########################################
+- template: templates/sleep-wake-signal.yml
+  parameters:
+    stageName: Sleep_Wake_Signal
+    displayName: 'Send Wake Signal'
+    dependsOn: Set_Build_Number
+    poolName: AlarmClock
+    condition: |
+        and(
+          succeeded(),
+          or(
+            eq('${{ parameters.targetOS }}', 'Windows'),
+            eq('${{ parameters.targetOS }}', 'Linux'),
+            eq('${{ parameters.targetOS }}', 'All')
+          )
+        )
+
+###########################################
 #         WINDOWS BUILD JOB               #
 ###########################################
 
@@ -99,7 +107,6 @@ stages:
   displayName: Windows Build x64
   dependsOn:
     - Sleep_Wake_Signal
-    - Set_Build_Number
   condition: and(succeeded(), or(eq('${{ parameters.targetOS }}', 'Windows'), eq('${{ parameters.targetOS }}', 'All')))
 
   jobs:
@@ -289,7 +296,6 @@ stages:
   displayName: Linux Build x64
   dependsOn:
     - Sleep_Wake_Signal
-    - Set_Build_Number
   condition: and(succeeded(), or(eq('${{ parameters.targetOS }}', 'Linux'), eq('${{ parameters.targetOS }}', 'All')))
 
   jobs:
@@ -558,16 +564,24 @@ stages:
     condition: succeeded()
 
 ###########################################
-#             SLEEP/WAKE SIGNAL           #
+#             SLEEP SIGNAL           #
 ###########################################
 - template: templates/sleep-wake-signal.yml
   parameters:
     stageName: Sleep_Wake_Signal2
-    displayName: 'Send Sleep/Wake Signal'
+    displayName: 'Send Sleep Signal'
     dependsOn:
-      - Upload_Debug_Symbols
+      - Sleep_Wake_Signal
     poolName: AlarmClock
-    condition: always()
+    condition: |
+        and(
+          in(dependencies.Sleep_Wake_Signal.result, 'Succeeded'),
+          or(
+            eq('${{ parameters.targetOS }}', 'Windows'),
+            eq('${{ parameters.targetOS }}', 'Linux'),
+            eq('${{ parameters.targetOS }}', 'All')
+          )
+        )
 
 ##########################################
 #          ARTIFACT VALIDATION           #
