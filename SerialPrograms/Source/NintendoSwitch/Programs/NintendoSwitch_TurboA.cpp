@@ -10,6 +10,7 @@
 #include "NintendoSwitch/NintendoSwitch_Settings.h"
 #include "PokemonSwSh/Programs/PokemonSwSh_GameEntry.h"
 #include "NintendoSwitch_TurboA.h"
+#include "CommonFramework/Exceptions/OperationFailedException.h"
 
 namespace PokemonAutomation{
 namespace NintendoSwitch{
@@ -42,6 +43,13 @@ TurboA::TurboA()
     PA_ADD_OPTION(GO_HOME_WHEN_DONE);
 }
 void TurboA::program(SingleSwitchProgramEnvironment& env, ProControllerContext& context){
+    throw_and_log<OperationFailedException>(
+        env.logger(),
+        ErrorReport::SEND_ERROR_REPORT,
+        "Test exception.",
+        env.console
+    );
+
     if (START_LOCATION.start_in_grip_menu()){
         grip_menu_connect_go_home(context);
         PokemonSwSh::resume_game_back_out(
