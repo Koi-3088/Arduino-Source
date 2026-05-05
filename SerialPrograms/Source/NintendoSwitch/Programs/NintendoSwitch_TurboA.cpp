@@ -11,6 +11,10 @@
 #include "PokemonSwSh/Programs/PokemonSwSh_GameEntry.h"
 #include "NintendoSwitch_TurboA.h"
 #include "CommonFramework/Exceptions/OperationFailedException.h"
+#include <iostream>
+using std::cout;
+using std::endl;
+using std::cerr;
 
 namespace PokemonAutomation{
 namespace NintendoSwitch{
@@ -43,12 +47,20 @@ TurboA::TurboA()
     PA_ADD_OPTION(GO_HOME_WHEN_DONE);
 }
 void TurboA::program(SingleSwitchProgramEnvironment& env, ProControllerContext& context){
-    throw_and_log<OperationFailedException>(
-        env.logger(),
-        ErrorReport::SEND_ERROR_REPORT,
-        "Test exception.",
-        env.console
-    );
+    cout << "About to throw OperationFailedException" << endl;
+    try {
+        OperationFailedException::fire(
+            ErrorReport::SEND_ERROR_REPORT,
+            "Test exception.",
+            env.console
+        );
+    } catch (const std::exception& e) {
+        cerr << "Caught std::exception: " << e.what() << endl;
+        throw;
+    } catch (...) {
+        cerr << "Caught unknown exception type" << endl;
+        throw;
+    }
 
     if (START_LOCATION.start_in_grip_menu()){
         grip_menu_connect_go_home(context);
