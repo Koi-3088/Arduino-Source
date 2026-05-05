@@ -16,3 +16,4 @@ steps:
   - checkout: Arduino-Source
     path: Arduino-Source-Internal/Repository/Public
     persistCredentials: true
+    ref: refs/heads/sleep
