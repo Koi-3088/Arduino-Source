@@ -177,8 +177,8 @@ if (APPLE)
         BUNDLE True
         MACOSX_BUNDLE_GUI_IDENTIFIER PokemonAutomation.SerialPrograms
         MACOSX_BUNDLE_BUNDLE_NAME SerialPrograms
-        MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}"
         MACOSX_BUNDLE_ICON_FILE "icon.icns"
         # MacOSXBundleInfo.plist.in is modified from https://github.com/Kitware/CMake/blob/master/Modules/MacOSXBundleInfo.plist.in
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/cmake/MacOSXBundleInfo.plist.in
@@ -696,6 +696,50 @@ SET_SOURCE_FILES_PROPERTIES(
 )
 endif()
 
+set_target_properties(SerialPrograms PROPERTIES QT_QML_IMPORT_DEPENDENCIES "QtMultimedia")
+
+if (QT_MAJOR GREATER_EQUAL 6)
+    get_target_property(_qt_widgets_location Qt6::Widgets LOCATION)
+    get_filename_component(_qt_bin_dir "${_qt_widgets_location}" DIRECTORY)
+    set(_qt_qml_source_dir "${_qt_bin_dir}/../qml/QtMultimedia")
+    if (APPLE)
+        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml/QtMultimedia")
+    elseif (WIN32)
+        set(_local_qml_dest_dir "${WIN_DEPLOY_DIR}/qml/QtMultimedia")
+    else()
+        set(_local_qml_dest_dir "${DEST_DIR}/qml/QtMultimedia")
+    endif()
+
+    add_custom_command(
+        TARGET SerialPrograms POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Auto-copying QML Multimedia modules from ${_qt_qml_source_dir}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_dest_dir}"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_dir}" "${_local_qml_dest_dir}"
+        COMMENT "Syncing local dev environment QML bindings..."
+    )
+
+    qt_finalize_target(SerialPrograms)
+endif()
+
+if(QT_DEPLOY_FILES)
+    # Run windeployqt if Qt DLLs are missing
+    if(WINDEPLOYQT_EXECUTABLE AND NOT EXISTS "${WIN_DEPLOY_DIR}/Qt6Core.dll")
+        add_custom_command(
+            TARGET SerialPrograms POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E echo "[Deploy] Running windeployqt"
+            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                --dir "${WIN_DEPLOY_DIR}"
+                $<IF:$<CONFIG:Debug>,--debug,--release>
+                $<TARGET_FILE:SerialPrograms>
+        )
+        add_custom_target(run_windeployqt DEPENDS $<TARGET_FILE:SerialPrograms> COMMENT "Running windeployqt")
+    else()
+        add_custom_target(run_windeployqt COMMENT "Skipping windeployqt (not found)")
+    endif()
+else()
+    add_custom_target(run_windeployqt COMMENT "Skipping windeployqt (CI environment)")
+endif()
+
 if (WIN32)
     set(OPENCV_DEBUG_ZIP "${REPO_ROOT_DIR}/3rdPartyBinaries/opencv_world4120d.zip")
     set(OPENCV_DEBUG_DLL "${REPO_ROOT_DIR}/3rdPartyBinaries/opencv_world4120d.dll")
@@ -780,66 +824,6 @@ if (WIN32)
         VERBATIM
     )
 endif() # end WIN32
-
-set_target_properties(SerialPrograms PROPERTIES QT_QML_IMPORT_DEPENDENCIES "QtMultimedia")
-
-if (QT_MAJOR GREATER_EQUAL 6)
-    get_target_property(_qt_qml_location Qt${QT_MAJOR}::Qml LOCATION)
-    get_filename_component(_qt_lib_dir
-        "${_qt_qml_location}"
-        DIRECTORY
-    )
-
-    get_filename_component(_qt_prefix_dir
-        "${_qt_lib_dir}"
-        DIRECTORY
-    )
-
-    set(_qt_qml_source_dir
-        "${_qt_prefix_dir}/qml"
-    )
-
-    if (NOT EXISTS "${_qt_qml_source_dir}")
-        message(FATAL_ERROR
-            "Qt QML source directory not found: ${_qt_qml_source_dir}"
-        )
-    endif()
-
-    if (APPLE)
-        set(_qt_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml")
-    else()
-        set(_qt_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/qml")
-    endif()
-
-    add_custom_command(
-        TARGET SerialPrograms POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "[Deploy] Copying QML modules from ${_qt_qml_source_dir} to ${_qt_qml_dest_dir}"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_dir}" "${_qt_qml_dest_dir}"
-        COMMENT "Copying QML modules for deployment..."
-        VERBATIM
-    )
-
-    qt_finalize_target(SerialPrograms)
-endif()
-
-if(QT_DEPLOY_FILES)
-    # Run windeployqt if Qt DLLs are missing
-    if(WINDEPLOYQT_EXECUTABLE AND NOT EXISTS "${WIN_DEPLOY_DIR}/Qt6Core.dll")
-        add_custom_command(
-            TARGET SerialPrograms POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E echo "[Deploy] Running windeployqt"
-            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-                --dir "${WIN_DEPLOY_DIR}"
-                $<IF:$<CONFIG:Debug>,--debug,--release>
-                $<TARGET_FILE:SerialPrograms>
-        )
-        add_custom_target(run_windeployqt DEPENDS $<TARGET_FILE:SerialPrograms> COMMENT "Running windeployqt")
-    else()
-        add_custom_target(run_windeployqt COMMENT "Skipping windeployqt (not found)")
-    endif()
-else()
-    add_custom_target(run_windeployqt COMMENT "Skipping windeployqt (CI environment)")
-endif()
 
 # Add command-line executable (GUI-free) from subdirectory
 include(Source/CommandLine/CommandLineExecutable.cmake)
