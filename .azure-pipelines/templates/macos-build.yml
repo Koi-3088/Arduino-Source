@@ -121,7 +121,7 @@ stages:
 
           QT_LIB="$QT_ROOT/lib"
           QT_PLUGINS="$QT_ROOT/plugins"
-          QT_FRAMEWORKS="Core Gui Widgets Network SerialPort Multimedia MultimediaWidgets Concurrent DBus OpenGL OpenGLWidgets Svg PrintSupport"
+          QT_FRAMEWORKS="Core Gui Widgets Network SerialPort Multimedia MultimediaWidgets Concurrent DBus OpenGL OpenGLWidgets Svg PrintSupport Qml Quick QuickWidgets"
 
           echo "=== Copying Qt frameworks $(architecture) ==="
           for fw in $QT_FRAMEWORKS; do

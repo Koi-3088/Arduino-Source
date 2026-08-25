@@ -385,6 +385,11 @@ stages:
           chmod +x appimagetool-x86_64.AppImage
           chmod +x linuxdeploy-plugin-gstreamer.sh
 
+          echo "=== Copying Qt QML Multimedia ==="
+          mkdir -p "$APP_DIR/usr/qml/QtMultimedia"
+          cp -a /opt/Qt/$(qt_version)/gcc_64/qml/QtMultimedia/. \
+             "$APP_DIR/usr/qml/QtMultimedia/" 2>/dev/null || true
+
           echo "=== Copying Wayland platform plugins ==="
           mkdir -p "$APP_DIR/usr/plugins/platforms"
           cp /opt/Qt/$(qt_version)/gcc_64/plugins/platforms/libqwayland*.so \
@@ -404,7 +409,7 @@ stages:
 
           echo "=== Running linuxdeploy to package AppImage ==="
           export QMAKE="/opt/Qt/$(qt_version)/gcc_64/bin/qmake"
-          export EXTRA_QT_PLUGINS="multimedia;waylandcompositor"
+          export EXTRA_QT_PLUGINS="multimedia;waylandcompositor;qml;quick;quickwidgets"
           ./linuxdeploy-x86_64.AppImage \
               --appdir "$APP_DIR" \
               -d "$APP_DIR/usr/share/applications/SerialPrograms.desktop" \

@@ -703,7 +703,7 @@ if (QT_MAJOR GREATER_EQUAL 6)
     get_filename_component(_qt_bin_dir "${_qt_widgets_location}" DIRECTORY)
     if (APPLE)
         set(_qt_qml_source_dir "${_qt_bin_dir}/../../../../qml/QtMultimedia")
-        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml/QtMultimedia")
+        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../PlugIns/qml/QtMultimedia")
     elseif (WIN32)
         set(_qt_qml_source_dir "${_qt_bin_dir}/../qml/QtMultimedia")
         set(_local_qml_dest_dir "${WIN_DEPLOY_DIR}/qml/QtMultimedia")
@@ -714,7 +714,7 @@ if (QT_MAJOR GREATER_EQUAL 6)
 
     add_custom_command(
         TARGET SerialPrograms POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Auto-copying QML Multimedia modules from ${_qt_qml_source_dir}"
+        COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Auto-copying QML Multimedia modules from ${_qt_qml_source_dir} to ${_local_qml_dest_dir}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_dest_dir}"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_dir}" "${_local_qml_dest_dir}"
         COMMENT "Syncing local dev environment QML bindings..."
