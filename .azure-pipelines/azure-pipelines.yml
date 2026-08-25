@@ -23,6 +23,8 @@ variables:
   - group: telemetry
   - group: alarm_clock
   - group: artifacts
+  - name: packages_ref
+    value: ${{ resources.repositories.Packages.ref }}
 
 parameters:
   - name: buildType
@@ -142,7 +144,7 @@ stages:
         condition: succeeded()
 
       - powershell: |
-          $ref = '${{ resources.repositories.Packages.ref }}'
+          $ref = '$(packages_ref)'
           if ($ref -like 'refs/heads/*') {
               $pkgTag = $ref -replace '^refs/heads/', ''
           } elseif ($ref -like 'refs/tags/*') {
@@ -319,7 +321,7 @@ stages:
 
       - script: |
           export PATH=$(linux_path)
-          ref = '${{ resources.repositories.Packages.ref }}'
+          ref = '$(packages_ref)'
           if [[ "$ref" == refs/heads/* ]]; then
               pkgTag="${ref#refs/heads/}"
           elif [[ "$ref" == refs/tags/* ]]; then
