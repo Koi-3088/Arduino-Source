@@ -276,9 +276,9 @@ set(RESOURCES_DIR "${PACKAGES_DIR}/Resources")
 
 # Clone Packages repo if not already present
 if (NOT EXISTS "${PACKAGES_DIR}")
-    message(STATUS "Cloning Packages repo at configure time...")
+    message(STATUS "Cloning Packages repo (${PACKAGES_TAG}) at configure time...")
     execute_process(
-        COMMAND git clone --branch master https://github.com/PokemonAutomation/Packages "${PACKAGES_DIR}"
+        COMMAND git clone --branch ${PACKAGES_TAG} https://github.com/PokemonAutomation/Packages "${PACKAGES_DIR}"
         WORKING_DIRECTORY "${REPO_ROOT_DIR}"
     )
     add_custom_target(clone_packages DEPENDS "${PACKAGES_DIR}")
@@ -703,7 +703,7 @@ if (QT_MAJOR GREATER_EQUAL 6)
     get_filename_component(_qt_bin_dir "${_qt_widgets_location}" DIRECTORY)
     if (APPLE)
         set(_qt_qml_source_dir "${_qt_bin_dir}/../../../../qml/QtMultimedia")
-        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../PlugIns/qml/QtMultimedia")
+        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml/QtMultimedia")
     elseif (WIN32)
         set(_qt_qml_source_dir "${_qt_bin_dir}/../qml/QtMultimedia")
         set(_local_qml_dest_dir "${WIN_DEPLOY_DIR}/qml/QtMultimedia")

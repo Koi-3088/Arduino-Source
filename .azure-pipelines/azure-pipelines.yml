@@ -123,7 +123,6 @@ stages:
           compiler: 'MSVC'
           qt_version: '6.10.2'
           qt_version_major: '6'
-          qt_modules: 'qtserialport qtmultimedia'
           cmake_preset: 'Publish'
           cmake_version_params: '-DVERSION_MAJOR=${{ parameters.versionMajor }} -DVERSION_MINOR=${{ parameters.versionMinor }} -DVERSION_PATCH=${{ parameters.versionPatch }} -DIS_BETA=${{ lower(eq(parameters.buildType, ''PrivateBeta'')) }}'
           cmake_additional_param: '-DCMAKE_PREFIX_PATH=C:/Qt/$(qt_version)/msvc2022_64/lib/cmake -DIS_AZURE_BUILD=TRUE'
@@ -143,8 +142,18 @@ stages:
         condition: succeeded()
 
       - script: |
+          $ref = '${{ resources.repositories.Packages.ref }}'
+          if ($ref -like 'refs/heads/*') {
+              $pkgTag = $ref -replace '^refs/heads/', ''
+          } elseif ($ref -like 'refs/tags/*') {
+              $pkgTag = $ref -replace '^refs/tags/', ''
+          } else {
+              $pkgTag = $ref
+          }
+
+          Write-Host "=== Checking out Packages repository at $pkgTag ==="
           cd /d "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/SerialPrograms"
-          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params)
+          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params) -DPACKAGES_TAG="$pkgTag"
         displayName: 'Configure CMake'
         condition: succeeded()
 
@@ -297,7 +306,6 @@ stages:
           compiler: 'GCC'
           qt_version: '6.10.2'
           qt_version_major: '6'
-          qt_modules: 'qtserialport qtmultimedia'
           cmake_preset: 'RelWithDebInfo'
           linux_path: '/opt/Qt/$(qt_version)/gcc_64/lib/cmake:/opt/Qt/$(qt_version)/gcc_64/bin:/opt/Qt/$(qt_version)/gcc_64/plugins:$PATH'
           cmake_version_params: '-DVERSION_MAJOR=${{ parameters.versionMajor }} -DVERSION_MINOR=${{ parameters.versionMinor }} -DVERSION_PATCH=${{ parameters.versionPatch }} -DIS_BETA=${{ lower(eq(parameters.buildType, ''PrivateBeta'')) }}'
@@ -311,8 +319,19 @@ stages:
 
       - script: |
           export PATH=$(linux_path)
+          ref = '${{ resources.repositories.Packages.ref }}'
+          if [[ "$ref" == refs/heads/* ]]; then
+              pkgTag="${ref#refs/heads/}"
+          elif [[ "$ref" == refs/tags/* ]]; then
+              pkgTag="${ref#refs/tags/}"
+          else
+              pkgTag="$ref"
+          fi
+
+          echo "=== Checking out Packages repository at $pkgTag ==="
+
           cd "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/SerialPrograms"
-          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params)
+          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params) -DPACKAGES_TAG="$pkgTag"
         displayName: 'Configure CMake'
         condition: succeeded()
 
@@ -510,7 +529,6 @@ stages:
     compiler: Clang
     qt_version: '6.10.2'
     qt_version_major: '6'
-    qt_modules: 'qtserialport qtmultimedia'
     cmake_preset: RelWithDebInfo
     macos_path: '/opt/Qt/6.10.2/macos/lib/cmake:/opt/Qt/6.10.2/macos/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/opt/homebrew:$PATH'
     openssl_pkcs_args: '-legacy'
@@ -534,7 +552,6 @@ stages:
     compiler: Clang
     qt_version: '6.10.2'
     qt_version_major: '6'
-    qt_modules: 'qtserialport qtmultimedia'
     cmake_preset: RelWithDebInfo
     macos_path: '/usr/local/Qt/6.10.2/macos/lib/cmake:/usr/local/Qt/6.10.2/macos/bin:/usr/local/bin:/usr/local/sbin:/usr/local:$PATH'
     openssl_pkcs_args: '-legacy'
