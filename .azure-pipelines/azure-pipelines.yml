@@ -141,7 +141,7 @@ stages:
         displayName: 'Initialize VS Environment'
         condition: succeeded()
 
-      - script: |
+      - powershell: |
           $ref = '${{ resources.repositories.Packages.ref }}'
           if ($ref -like 'refs/heads/*') {
               $pkgTag = $ref -replace '^refs/heads/', ''
