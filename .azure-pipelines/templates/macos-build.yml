@@ -49,7 +49,6 @@ stages:
       macos_path: ${{ parameters.macos_path }}
       cmake_version_params: ${{ parameters.cmake_version_params }}
       cmake_additional_param: ${{ parameters.cmake_additional_param }}
-      packages_ref: ${{ resources.repositories.Packages.ref }}
 
     steps:
       - template: checkout.yml
