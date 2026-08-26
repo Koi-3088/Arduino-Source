@@ -11,11 +11,6 @@ resources:
       name: PokemonAutomation/Arduino-Source-Internal
       endpoint: PokemonAutomation
 
-    - repository: Packages
-      type: github
-      name: PokemonAutomation/Packages
-      endpoint: PokemonAutomation
-
 variables:
   - group: apple-signing
   - group: github
@@ -51,6 +46,11 @@ parameters:
     displayName: Version Patch
     type: number
     default: 0
+
+  - name: packagesRef
+    displayName: Packages Ref (branch/tag/SHA)
+    type: string
+    default: master
 
 stages:
 
@@ -125,7 +125,7 @@ stages:
           qt_version_major: '6'
           cmake_preset: 'Publish'
           cmake_version_params: '-DVERSION_MAJOR=${{ parameters.versionMajor }} -DVERSION_MINOR=${{ parameters.versionMinor }} -DVERSION_PATCH=${{ parameters.versionPatch }} -DIS_BETA=${{ lower(eq(parameters.buildType, ''PrivateBeta'')) }}'
-          cmake_additional_param: '-DCMAKE_PREFIX_PATH=C:/Qt/$(qt_version)/msvc2022_64/lib/cmake -DIS_AZURE_BUILD=TRUE'
+          cmake_additional_param: '-DCMAKE_PREFIX_PATH=C:/Qt/$(qt_version)/msvc2022_64/lib/cmake -DIS_AZURE_BUILD=TRUE -DPACKAGES_TAG=${{ parameters.packagesRef }}'
 
     pool:
       name: $(poolName)
@@ -142,18 +142,9 @@ stages:
         condition: succeeded()
 
       - powershell: |
-          $ref = '$(packages_ref)'
-          if ($ref -like 'refs/heads/*') {
-              $pkgTag = $ref -replace '^refs/heads/', ''
-          } elseif ($ref -like 'refs/tags/*') {
-              $pkgTag = $ref -replace '^refs/tags/', ''
-          } else {
-              $pkgTag = $ref
-          }
-
-          Write-Host "=== Checking out Packages repository at $pkgTag ==="
+          Write-Host "=== Passing Packages ref to CMake (${{ parameters.packagesRef }}) ==="
           cd /d "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/SerialPrograms"
-          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params) -DPACKAGES_TAG="$pkgTag"
+          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params)
         displayName: 'Configure CMake'
         condition: succeeded()
 
@@ -309,7 +300,7 @@ stages:
           cmake_preset: 'RelWithDebInfo'
           linux_path: '/opt/Qt/$(qt_version)/gcc_64/lib/cmake:/opt/Qt/$(qt_version)/gcc_64/bin:/opt/Qt/$(qt_version)/gcc_64/plugins:$PATH'
           cmake_version_params: '-DVERSION_MAJOR=${{ parameters.versionMajor }} -DVERSION_MINOR=${{ parameters.versionMinor }} -DVERSION_PATCH=${{ parameters.versionPatch }} -DIS_BETA=${{ lower(eq(parameters.buildType, ''PrivateBeta'')) }}'
-          cmake_additional_param: '-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DIS_AZURE_BUILD=TRUE'
+          cmake_additional_param: '-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DIS_AZURE_BUILD=TRUE -DPACKAGES_TAG=${{ parameters.packagesRef }}'
 
     pool:
       name: $(poolName)
@@ -319,19 +310,9 @@ stages:
 
       - script: |
           export PATH=$(linux_path)
-          ref = '$(packages_ref)'
-          if [[ "$ref" == refs/heads/* ]]; then
-              pkgTag="${ref#refs/heads/}"
-          elif [[ "$ref" == refs/tags/* ]]; then
-              pkgTag="${ref#refs/tags/}"
-          else
-              pkgTag="$ref"
-          fi
-
-          echo "=== Checking out Packages repository at $pkgTag ==="
-
+          echo "=== Passing Packages ref to CMake (${{ parameters.packagesRef }}) ==="
           cd "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/SerialPrograms"
-          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params) -DPACKAGES_TAG="$pkgTag"
+          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params)
         displayName: 'Configure CMake'
         condition: succeeded()
 
@@ -533,10 +514,11 @@ stages:
     macos_path: '/opt/Qt/6.10.2/macos/lib/cmake:/opt/Qt/6.10.2/macos/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/opt/homebrew:$PATH'
     openssl_pkcs_args: '-legacy'
     cmake_version_params: '-DVERSION_MAJOR=${{ parameters.versionMajor }} -DVERSION_MINOR=${{ parameters.versionMinor }} -DVERSION_PATCH=${{ parameters.versionPatch }} -DIS_BETA=${{ lower(eq(parameters.buildType, ''PrivateBeta'')) }}'
-    cmake_additional_param: '-DPACKAGE_BUILD=true -DUNIX_LINK_TESSERACT:BOOL=true -DIS_AZURE_BUILD=TRUE'
+    cmake_additional_param: '-DPACKAGE_BUILD=true -DUNIX_LINK_TESSERACT:BOOL=true -DIS_AZURE_BUILD=TRUE -DPACKAGES_TAG=${{ parameters.packagesRef }}'
     versionMajor: ${{ parameters.versionMajor }}
     versionMinor: ${{ parameters.versionMinor }}
     versionPatch: ${{ parameters.versionPatch }}
+    pkgTag: ${{ parameters.packagesRef }}
     condition: and(succeeded(), or(eq('${{ parameters.targetOS }}', 'MacOS'), eq('${{ parameters.targetOS }}', 'All')))
 
 - template: templates/macos-build.yml
@@ -556,10 +538,11 @@ stages:
     macos_path: '/usr/local/Qt/6.10.2/macos/lib/cmake:/usr/local/Qt/6.10.2/macos/bin:/usr/local/bin:/usr/local/sbin:/usr/local:$PATH'
     openssl_pkcs_args: '-legacy'
     cmake_version_params: '-DVERSION_MAJOR=${{ parameters.versionMajor }} -DVERSION_MINOR=${{ parameters.versionMinor }} -DVERSION_PATCH=${{ parameters.versionPatch }} -DIS_BETA=${{ lower(eq(parameters.buildType, ''PrivateBeta'')) }}'
-    cmake_additional_param: '-DPACKAGE_BUILD=true -DUNIX_LINK_TESSERACT:BOOL=true -DIS_AZURE_BUILD=TRUE'
+    cmake_additional_param: '-DPACKAGE_BUILD=true -DUNIX_LINK_TESSERACT:BOOL=true -DIS_AZURE_BUILD=TRUE -DPACKAGES_TAG=${{ parameters.packagesRef }}'
     versionMajor: ${{ parameters.versionMajor }}
     versionMinor: ${{ parameters.versionMinor }}
     versionPatch: ${{ parameters.versionPatch }}
+    pkgTag: ${{ parameters.packagesRef }}
     condition: and(succeeded(), or(eq('${{ parameters.targetOS }}', 'MacOS'), eq('${{ parameters.targetOS }}', 'All')))
 
 ##########################################

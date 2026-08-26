@@ -22,6 +22,7 @@ parameters:
   versionMajor: 0
   versionMinor: 0
   versionPatch: 0
+  pkgTag: ''
   condition: ''
 
 stages:
@@ -73,19 +74,9 @@ stages:
 
       - script: |
           export PATH=$(macos_path)
-          ref = '$(packages_ref)'
-          if [[ "$ref" == refs/heads/* ]]; then
-              pkgTag="${ref#refs/heads/}"
-          elif [[ "$ref" == refs/tags/* ]]; then
-              pkgTag="${ref#refs/tags/}"
-          else
-              pkgTag="$ref"
-          fi
-
-          echo "=== Checking out Packages repository at $pkgTag ==="
-
+          echo "=== Checking out Packages repository at ${{ parameters.pkgTag }} ==="
           cd "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/SerialPrograms"
-          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params) -DPACKAGES_TAG="$pkgTag"
+          cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params)
         displayName: 'Configure CMake'
         condition: succeeded()
 
@@ -146,7 +137,7 @@ stages:
           done
 
           echo "=== Copying Qt plugins $(architecture) ==="
-          for plugin_type in imageformats platforms styles iconengines platforminputcontexts multimedia tls; do
+          for plugin_type in imageformats platforms styles iconengines platforminputcontexts multimedia tls qml quick quickwidgets; do
               [ -d "$QT_PLUGINS/$plugin_type" ] || continue
               mkdir -p "$PLUGINS_DIR/$plugin_type"
               for plugin in "$QT_PLUGINS/$plugin_type/"*.dylib; do
