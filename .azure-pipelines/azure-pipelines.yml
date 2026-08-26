@@ -141,8 +141,8 @@ stages:
         displayName: 'Initialize VS Environment'
         condition: succeeded()
 
-      - powershell: |
-          Write-Host "=== Passing Packages ref to CMake (${{ parameters.packagesRef }}) ==="
+      - script: |
+          echo "=== Passing Packages ref to CMake (${{ parameters.packagesRef }}) ==="
           cd /d "$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/SerialPrograms"
           cmake --preset=$(cmake_preset) $(cmake_additional_param) $(cmake_version_params)
         displayName: 'Configure CMake'

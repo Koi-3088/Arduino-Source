@@ -274,6 +274,10 @@ set(FIRMWARE_DIR "${PACKAGES_DIR}/Firmware")
 set(SCRIPTS_DIR "${PACKAGES_DIR}/Scripts")
 set(RESOURCES_DIR "${PACKAGES_DIR}/Resources")
 
+if (NOT DEFINED PACKAGES_TAG)
+    set(PACKAGES_TAG "master")
+endif()
+
 # Clone Packages repo if not already present
 if (NOT EXISTS "${PACKAGES_DIR}")
     message(STATUS "Cloning Packages repo (${PACKAGES_TAG}) at configure time...")
