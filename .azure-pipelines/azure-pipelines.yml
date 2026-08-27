@@ -409,7 +409,7 @@ stages:
 
           echo "=== Running linuxdeploy to package AppImage ==="
           export QMAKE="/opt/Qt/$(qt_version)/gcc_64/bin/qmake"
-          export EXTRA_QT_PLUGINS="multimedia;waylandcompositor;qml;quick;quickwidgets"
+          export EXTRA_QT_PLUGINS="multimedia;waylandcompositor;qml;quick;quickwidgets;qmlnetwork"
           ./linuxdeploy-x86_64.AppImage \
               --appdir "$APP_DIR" \
               -d "$APP_DIR/usr/share/applications/SerialPrograms.desktop" \
