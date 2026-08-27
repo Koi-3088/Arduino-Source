@@ -386,9 +386,9 @@ stages:
           chmod +x linuxdeploy-plugin-gstreamer.sh
 
           echo "=== Copying Qt QML Multimedia ==="
-          mkdir -p "$APP_DIR/usr/lib/qml/QtMultimedia"
-          cp -a /opt/Qt/$(qt_version)/gcc_64/qml/QtMultimedia/. \
-             "$APP_DIR/usr/lib/qml/QtMultimedia/" 2>/dev/null || true
+          mkdir -p "$APP_DIR/usr/lib/qml"
+          cp -a /opt/Qt/$(qt_version)/gcc_64/qml/. \
+             "$APP_DIR/usr/lib/qml/" 2>/dev/null || true
 
           echo "=== Copying Wayland platform plugins ==="
           mkdir -p "$APP_DIR/usr/plugins/platforms"

@@ -703,28 +703,37 @@ endif()
 set_target_properties(SerialPrograms PROPERTIES QT_QML_IMPORT_DEPENDENCIES "QtMultimedia")
 
 if (QT_MAJOR GREATER_EQUAL 6)
-    get_target_property(_qt_widgets_location Qt6::Widgets LOCATION)
-    get_filename_component(_qt_bin_dir "${_qt_widgets_location}" DIRECTORY)
-    if (APPLE)
-        set(_qt_qml_source_dir "${_qt_bin_dir}/../../../../qml/QtMultimedia")
-        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml/QtMultimedia")
-    elseif (WIN32)
-        set(_qt_qml_source_dir "${_qt_bin_dir}/../qml/QtMultimedia")
-        set(_local_qml_dest_dir "${WIN_DEPLOY_DIR}/qml/QtMultimedia")
-    else()
-        set(_qt_qml_source_dir "${_qt_bin_dir}/../qml/QtMultimedia")
-        set(_local_qml_dest_dir "${DEST_DIR}/qml/QtMultimedia")
-    endif()
-
-    add_custom_command(
-        TARGET SerialPrograms POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Auto-copying QML Multimedia modules from ${_qt_qml_source_dir} to ${_local_qml_dest_dir}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_dest_dir}"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_dir}" "${_local_qml_dest_dir}"
-        COMMENT "Syncing local dev environment QML bindings..."
-    )
-
     qt_finalize_target(SerialPrograms)
+    get_target_property(_qt_qml_location Qt6::Qml LOCATION)
+
+    if (APPLE)
+        get_filename_component(_qt_lib_dir "${_qt_qml_location}" DIRECTORY)
+        get_filename_component(_qt_root_dir "${_qt_lib_dir}/../.." ABSOLUTE)
+        set(_qt_qml_source_dir "${_qt_root_dir}/qml")
+        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml")
+
+        add_custom_command(
+            TARGET SerialPrograms POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Copying Qt QML modules from ${_qt_qml_source_dir} to ${_local_qml_dest_dir}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_dest_dir}"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_dir}" "${_local_qml_dest_dir}"
+            COMMENT "Deploying Qt QML modules..."
+            VERBATIM
+        )
+    else()
+        get_filename_component(_qt_bin_dir "${_qt_qml_location}" DIRECTORY)
+        set(_qt_qml_source_dir "${_qt_bin_dir}/../qml")
+        set(_local_qml_dest_dir "${WIN_DEPLOY_DIR}/qml")
+
+        add_custom_command(
+            TARGET SerialPrograms POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Copying Qt QML modules from ${_qt_qml_source_dir} to ${_local_qml_dest_dir}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_dest_dir}"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_dir}" "${_local_qml_dest_dir}"
+            COMMENT "Deploying Qt QML modules..."
+            VERBATIM
+        )
+    endif()
 endif()
 
 if(QT_DEPLOY_FILES)
