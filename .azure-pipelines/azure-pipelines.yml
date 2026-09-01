@@ -418,6 +418,7 @@ stages:
               -l "$DISCORD_SO" \
               -p qt \
               -p gstreamer \
+              -qmldir="${SRC_DIR}/SerialPrograms/Source/CommonFramework/VideoPipeline/Backends"
               -v 3
 
           echo "=== Removing unnecessary Qt files ==="

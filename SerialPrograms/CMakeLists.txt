@@ -700,18 +700,21 @@ SET_SOURCE_FILES_PROPERTIES(
 )
 endif()
 
-set_target_properties(SerialPrograms PROPERTIES QT_QML_IMPORT_DEPENDENCIES "QtMultimedia")
+set_target_properties(SerialPrograms PROPERTIES
+    QT_QML_IMPORT_DEPENDENCIES "QtMultimedia"
+    QT_QML_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Source/CommonFramework/VideoPipeline/Backends"
+)
 
 if (QT_MAJOR GREATER_EQUAL 6)
     qt_finalize_target(SerialPrograms)
     get_filename_component(_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
-    set(_qt_qml_source_dir "${_qt_prefix}/qml")
+    set(_qt_qml_source_dir "${_qt_prefix}/qml/QtMultimedia")
     if (APPLE)
-        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml")
+        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml/QtMultimedia")
     elseif(WIN32)
-        set(_local_qml_dest_dir "${WIN_DEPLOY_DIR}/qml")
+        set(_local_qml_dest_dir "${WIN_DEPLOY_DIR}/qml/QtMultimedia")
     else()
-        set(_local_qml_dest_dir "${DEST_DIR}/qml")
+        set(_local_qml_dest_dir "${DEST_DIR}/qml/QtMultimedia")
     endif()
 
     add_custom_command(
@@ -732,6 +735,7 @@ if(QT_DEPLOY_FILES)
             COMMAND ${CMAKE_COMMAND} -E echo "[Deploy] Running windeployqt"
             COMMAND "${WINDEPLOYQT_EXECUTABLE}"
                 --dir "${WIN_DEPLOY_DIR}"
+                --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/Source/CommonFramework/VideoPipeline/Backends"
                 $<IF:$<CONFIG:Debug>,--debug,--release>
                 $<TARGET_FILE:SerialPrograms>
         )
