@@ -410,9 +410,9 @@ stages:
           echo "=== Running linuxdeploy to package AppImage ==="
           export QMAKE="/opt/Qt/$(qt_version)/gcc_64/bin/qmake"
           export EXTRA_QT_PLUGINS="multimedia;waylandcompositor;qml;quick;quickwidgets;qmlnetwork"
+          export QML_SOURCES_PATHS="$SRC_DIR/SerialPrograms/Source/CommonFramework/VideoPipeline/Backends"
           ./linuxdeploy-x86_64.AppImage \
               --appdir "$APP_DIR" \
-              --qmldir="$SRC_DIR/SerialPrograms/Source/CommonFramework/VideoPipeline/Backends" \
               -d "$APP_DIR/usr/share/applications/SerialPrograms.desktop" \
               -i "$APP_DIR/usr/share/icons/hicolor/256x256/apps/SerialPrograms.png" \
               -e "$APP_DIR/usr/bin/SerialPrograms" \
