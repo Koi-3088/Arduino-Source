@@ -343,6 +343,8 @@ stages:
           set -e
           export LINUXDEPLOY_DISABLE_APPSTREAM=1
           export PATH=$(linux_path)
+          # linuxdeploy resolves AppDir dependencies via ldd, which does not search the aqt install in /opt/Qt
+          export LD_LIBRARY_PATH="/opt/Qt/$(qt_version)/gcc_64/lib:$LD_LIBRARY_PATH"
           BUILD_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public/build/$(cmake_preset)"
           SRC_DIR="$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public"
           APP_DIR="$BUILD_DIR/AppDir"
