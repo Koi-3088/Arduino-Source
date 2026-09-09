@@ -149,6 +149,28 @@ stages:
               done
           done
 
+          # The app sets QML_IMPORT_PATH to <applicationDirPath()>/qml (see Main.cpp),
+          # which for a macOS bundle is Contents/MacOS/qml. Deploy the QML modules the
+          # app imports (import QtQuick / import QtMultimedia, plus the QtQml base module
+          # QtQuick depends on) there. Copying each module dir in full pulls in its
+          # nested submodules (e.g. QtMultimediaQuick).
+          echo "=== Copying Qt QML modules $(architecture) ==="
+          QML_SRC="$QT_ROOT/qml"
+          QML_DEST="$MACOS_DIR/qml"
+          mkdir -p "$QML_DEST"
+          for qml_module in QtQml QtQuick QtMultimedia; do
+              if [ ! -d "$QML_SRC/$qml_module" ]; then
+                  echo "WARNING: QML module $qml_module not found at $QML_SRC/$qml_module, skipping"
+                  continue
+              fi
+              cp -a "$QML_SRC/$qml_module" "$QML_DEST/"
+              find "$QML_DEST/$qml_module" -name "*.dylib" -type f -print0 | while IFS= read -r -d '' lib; do
+                  NUM_ARCHS=$(lipo -archs "$lib" 2>/dev/null | wc -w | tr -d ' ')
+                  [ "$NUM_ARCHS" -gt 1 ] && lipo "$lib" -thin "$LIPO_ARCH" -output "$lib" || true
+              done
+              echo "  + QML module: $qml_module"
+          done
+
           echo "=== Recursively resolving all native dependencies ==="
           ALL_RPATHS=$(otool -l "$MACOS_DIR/SerialPrograms" 2>/dev/null \
               | awk '/cmd LC_RPATH/{f=1} f && /path /{print $2; f=0}' || true)
@@ -241,6 +263,13 @@ stages:
               resolve_deps "$plugin"
           done
 
+          # Pull in any non-Qt native dependencies of the QML plugins (their Qt
+          # framework deps are already present in FW_DIR, so this is mostly a no-op).
+          find "$QML_DEST" -name "*.dylib" -type f -print0 | while IFS= read -r -d '' plugin; do
+              add_rpaths_from "$plugin"
+              resolve_deps "$plugin"
+          done
+
           echo "=== Copying ONNX Runtime ==="
           ONNX_VERSION="1.23.2"
           REPO_ROOT="$(Pipeline.Workspace)/Arduino-Source-Internal/Repository/Public"
@@ -319,6 +348,11 @@ stages:
 
           echo "=== Fix plugin refs ==="
           find "$PLUGINS_DIR" -name "*.dylib" -type f -print0 | while IFS= read -r -d '' plugin; do
+              fix_refs "$plugin"
+          done
+
+          echo "=== Fix QML plugin refs ==="
+          find "$QML_DEST" -name "*.dylib" -type f -print0 | while IFS= read -r -d '' plugin; do
               fix_refs "$plugin"
           done
 

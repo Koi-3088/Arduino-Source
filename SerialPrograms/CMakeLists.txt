@@ -708,23 +708,37 @@ set_target_properties(SerialPrograms PROPERTIES
 if (QT_MAJOR GREATER_EQUAL 6)
     qt_finalize_target(SerialPrograms)
     get_filename_component(_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
-    set(_qt_qml_source_dir "${_qt_prefix}/qml/QtMultimedia")
+    set(_qt_qml_source_root "${_qt_prefix}/qml")
+
+    # Where the app looks for QML modules at runtime. The app sets QML_IMPORT_PATH
+    # to <applicationDirPath()>/qml (see Main.cpp), so this must match the directory
+    # that hosts the built executable:
+    #   macOS:  SerialPrograms.app/Contents/MacOS/qml
+    #   Windows: <deploy>/Binaries64/qml (next to SerialPrograms.exe)
+    #   Linux:  <build-dir>/qml (next to the SerialPrograms binary)
     if (APPLE)
-        set(_local_qml_dest_dir "$<TARGET_FILE_DIR:SerialPrograms>/../Resources/qml/QtMultimedia")
+        set(_local_qml_root_dir "$<TARGET_FILE_DIR:SerialPrograms>/qml")
     elseif(WIN32)
-        set(_local_qml_dest_dir "${WIN_DEPLOY_DIR}/qml/QtMultimedia")
+        set(_local_qml_root_dir "${WIN_DEPLOY_DIR}/qml")
     else()
-        set(_local_qml_dest_dir "${DEST_DIR}/qml/QtMultimedia")
+        set(_local_qml_root_dir "${DEST_DIR}/qml")
     endif()
 
-    add_custom_command(
-        TARGET SerialPrograms POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Copying Qt QML modules from ${_qt_qml_source_dir} to ${_local_qml_dest_dir}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_dest_dir}"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_dir}" "${_local_qml_dest_dir}"
-        COMMENT "Deploying Qt QML modules..."
-        VERBATIM
-    )
+    # QML modules the app imports (import QtQuick / import QtMultimedia in the
+    # inline QML of CameraVideoDisplay) plus the QtQml base module that QtQuick
+    # depends on. Copying each module directory in full also pulls in its nested
+    # submodules (e.g. QtMultimediaQuick under QtMultimedia).
+    set(_qt_qml_modules_to_deploy QtQml QtQuick QtMultimedia)
+    foreach(_qt_qml_module IN LISTS _qt_qml_modules_to_deploy)
+        add_custom_command(
+            TARGET SerialPrograms POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Copying Qt QML module ${_qt_qml_module} from ${_qt_qml_source_root}/${_qt_qml_module} to ${_local_qml_root_dir}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_root_dir}"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_root}/${_qt_qml_module}" "${_local_qml_root_dir}/${_qt_qml_module}"
+            COMMENT "Deploying Qt QML module ${_qt_qml_module}..."
+            VERBATIM
+        )
+    endforeach()
 endif()
 
 if(QT_DEPLOY_FILES)
