@@ -710,35 +710,82 @@ if (QT_MAJOR GREATER_EQUAL 6)
     get_filename_component(_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
     set(_qt_qml_source_root "${_qt_prefix}/qml")
 
-    # Where the app looks for QML modules at runtime. The app sets QML_IMPORT_PATH
-    # to <applicationDirPath()>/qml (see Main.cpp), so this must match the directory
-    # that hosts the built executable:
-    #   macOS:  SerialPrograms.app/Contents/MacOS/qml
-    #   Windows: <deploy>/Binaries64/qml (next to SerialPrograms.exe)
-    #   Linux:  <build-dir>/qml (next to the SerialPrograms binary)
-    if (APPLE)
-        set(_local_qml_root_dir "$<TARGET_FILE_DIR:SerialPrograms>/qml")
-    elseif(WIN32)
-        set(_local_qml_root_dir "${WIN_DEPLOY_DIR}/qml")
-    else()
-        set(_local_qml_root_dir "${DEST_DIR}/qml")
+    if (NOT EXISTS "${_qt_qml_source_root}")
+        message(FATAL_ERROR "Qt QML source directory not found: ${_qt_qml_source_root}")
     endif()
 
-    # QML modules the app imports (import QtQuick / import QtMultimedia in the
-    # inline QML of CameraVideoDisplay) plus the QtQml base module that QtQuick
-    # depends on. Copying each module directory in full also pulls in its nested
-    # submodules (e.g. QtMultimediaQuick under QtMultimedia).
+    # Where the app looks for QML modules at runtime. The app sets QML_IMPORT_PATH
+    # to <applicationDirPath()>/qml (see Main.cpp), so this must be the directory
+    # that hosts the built executable:
+    #   macOS:   SerialPrograms.app/Contents/MacOS/qml
+    #   Windows: <deploy>/Binaries64/qml (next to SerialPrograms.exe)
+    #   Linux:   <build-dir>/qml (next to the SerialPrograms binary)
+    if (APPLE)
+        set(_local_qml_root_dir "${CMAKE_BINARY_DIR}/SerialPrograms.app/Contents/MacOS/qml")
+    elseif(WIN32)
+        if (PACKAGE_BUILD)
+            set(_local_qml_root_dir "${CMAKE_BINARY_DIR}/Output/Binaries64/qml")
+        else()
+            set(_local_qml_root_dir "${CMAKE_BINARY_DIR}/qml")
+        endif()
+    else()
+        set(_local_qml_root_dir "${CMAKE_BINARY_DIR}/qml")
+    endif()
+
+    # The app's inline QML only imports the base of each module (import QtQuick /
+    # import QtMultimedia in CameraVideoDisplay; QtMultimedia's qmldir depends on
+    # QtQuick, and QtQuick's qmldir auto-imports QtQml). Deploy just each module's
+    # own files (qmldir, qmltypes, qml, its plugin binary) and NOT its nested
+    # submodules (QtQuick.Controls, QtQuick.Layouts, ...), which would add hundreds
+    # of MB the app never loads.
     set(_qt_qml_modules_to_deploy QtQml QtQuick QtMultimedia)
+    set(_qml_deploy_commands
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "${_local_qml_root_dir}"
+    )
     foreach(_qt_qml_module IN LISTS _qt_qml_modules_to_deploy)
-        add_custom_command(
-            TARGET SerialPrograms POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Copying Qt QML module ${_qt_qml_module} from ${_qt_qml_source_root}/${_qt_qml_module} to ${_local_qml_root_dir}"
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_root_dir}"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory "${_qt_qml_source_root}/${_qt_qml_module}" "${_local_qml_root_dir}/${_qt_qml_module}"
-            COMMENT "Deploying Qt QML module ${_qt_qml_module}..."
-            VERBATIM
+        if (NOT EXISTS "${_qt_qml_source_root}/${_qt_qml_module}")
+            message(FATAL_ERROR "Qt QML module not found: ${_qt_qml_source_root}/${_qt_qml_module}")
+        endif()
+        file(GLOB _module_entries "${_qt_qml_source_root}/${_qt_qml_module}/*")
+        set(_module_files "")
+        foreach(_entry IN LISTS _module_entries)
+            if(IS_DIRECTORY "${_entry}")
+                continue()
+            endif()
+            get_filename_component(_entry_name "${_entry}" NAME)
+            if(_entry_name MATCHES "\\.pdb$")
+                continue()
+            endif()
+            # On Windows deploy only the plugin binary matching this build config
+            # (debug variants carry a "d" suffix, e.g. qtquick2plugind.dll)
+            if(WIN32 AND _entry_name MATCHES "\\.dll$")
+                if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT _entry_name MATCHES "d\\.dll$")
+                    continue()
+                elseif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND _entry_name MATCHES "d\\.dll$")
+                    continue()
+                endif()
+            endif()
+            list(APPEND _module_files "${_entry}")
+        endforeach()
+        list(APPEND _qml_deploy_commands
+            COMMAND ${CMAKE_COMMAND} -E echo "[Deploy-Local] Copying Qt QML module ${_qt_qml_module} (base files only) to ${_local_qml_root_dir}/${_qt_qml_module}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${_local_qml_root_dir}/${_qt_qml_module}"
+            COMMAND ${CMAKE_COMMAND} -E copy ${_module_files} "${_local_qml_root_dir}/${_qt_qml_module}/"
         )
     endforeach()
+    add_custom_target(deploy_local_qml_modules ALL
+        COMMENT "Deploying Qt QML modules (base files only) to ${_local_qml_root_dir}"
+    )
+    add_custom_command(
+        TARGET deploy_local_qml_modules
+        PRE_BUILD
+        COMMAND ${_qml_deploy_commands}
+        COMMENT "Deploying Qt QML modules..."
+        VERBATIM
+    )
+    # Runs after windeployqt, which scans .qml files in the deploy dir and would
+    # otherwise re-deploy the full module trees (including submodules and PDBs).
+    add_dependencies(deploy_local_qml_modules SerialPrograms run_windeployqt)
 endif()
 
 if(QT_DEPLOY_FILES)
@@ -749,7 +796,6 @@ if(QT_DEPLOY_FILES)
             COMMAND ${CMAKE_COMMAND} -E echo "[Deploy] Running windeployqt"
             COMMAND "${WINDEPLOYQT_EXECUTABLE}"
                 --dir "${WIN_DEPLOY_DIR}"
-                --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/Source/CommonFramework/VideoPipeline/Backends"
                 $<IF:$<CONFIG:Debug>,--debug,--release>
                 $<TARGET_FILE:SerialPrograms>
         )

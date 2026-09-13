@@ -383,11 +383,9 @@ stages:
           chmod +x appimagetool-x86_64.AppImage
           chmod +x linuxdeploy-plugin-gstreamer.sh
 
-          echo "=== Copying Qt QML modules ==="
+          echo "=== Copying Qt QML modules (base modules only, as deployed by CMake) ==="
           mkdir -p "$APP_DIR/usr/lib/qml"
-          for qml_module in QtQml QtQuick QtMultimedia; do
-              cp -a "/opt/Qt/$(qt_version)/gcc_64/qml/${qml_module}" "$APP_DIR/usr/lib/qml/"
-          done
+          cp -a "$BUILD_DIR/qml/." "$APP_DIR/usr/lib/qml/"
 
           echo "=== Copying Wayland platform plugins ==="
           mkdir -p "$APP_DIR/usr/plugins/platforms"
@@ -423,6 +421,15 @@ stages:
 
           echo "=== Removing unnecessary Qt files ==="
           rm -rf "$APP_DIR/usr/translations"
+
+          echo "=== Pruning unused QML submodules ==="
+          # linuxdeploy re-deploys the full module dirs for any imports it finds in
+          # .qml files inside AppDir (e.g. Video.qml), so keep only base files.
+          for qml_module in QtQml QtQuick QtMultimedia; do
+              if [ -d "$APP_DIR/usr/lib/qml/${qml_module}" ]; then
+                  find "$APP_DIR/usr/lib/qml/${qml_module}" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
+              fi
+          done
 
           echo "=== Patching AppRun to force GStreamer backend ==="
           sed -i '2i export PA_APPIMAGE_DIR=$(cd "$(dirname "$APPIMAGE")" && pwd)' "$APP_DIR/AppRun"

@@ -149,26 +149,16 @@ stages:
               done
           done
 
-          # The app sets QML_IMPORT_PATH to <applicationDirPath()>/qml (see Main.cpp),
-          # which for a macOS bundle is Contents/MacOS/qml. Deploy the QML modules the
-          # app imports (import QtQuick / import QtMultimedia, plus the QtQml base module
-          # QtQuick depends on) there. Copying each module dir in full pulls in its
-          # nested submodules (e.g. QtMultimediaQuick).
-          echo "=== Copying Qt QML modules $(architecture) ==="
-          QML_SRC="$QT_ROOT/qml"
+          # The CMake build already deployed the QML modules the app's inline QML
+          # imports (base QtQml / QtQuick / QtMultimedia only, no submodules) to
+          # Contents/MacOS/qml - the app sets QML_IMPORT_PATH there (see Main.cpp).
+          # The Qt install ships universal dylibs, so thin them to this arch.
+          echo "=== Thinning QML module dylibs to $(LIPO_ARCH) ==="
           QML_DEST="$MACOS_DIR/qml"
-          mkdir -p "$QML_DEST"
-          for qml_module in QtQml QtQuick QtMultimedia; do
-              if [ ! -d "$QML_SRC/$qml_module" ]; then
-                  echo "WARNING: QML module $qml_module not found at $QML_SRC/$qml_module, skipping"
-                  continue
-              fi
-              cp -a "$QML_SRC/$qml_module" "$QML_DEST/"
-              find "$QML_DEST/$qml_module" -name "*.dylib" -type f -print0 | while IFS= read -r -d '' lib; do
-                  NUM_ARCHS=$(lipo -archs "$lib" 2>/dev/null | wc -w | tr -d ' ')
-                  [ "$NUM_ARCHS" -gt 1 ] && lipo "$lib" -thin "$LIPO_ARCH" -output "$lib" || true
-              done
-              echo "  + QML module: $qml_module"
+          [ -d "$QML_DEST" ] || { echo "ERROR: CMake did not deploy QML modules to $QML_DEST"; exit 1; }
+          find "$QML_DEST" -name "*.dylib" -type f -print0 | while IFS= read -r -d '' lib; do
+              NUM_ARCHS=$(lipo -archs "$lib" 2>/dev/null | wc -w | tr -d ' ')
+              [ "$NUM_ARCHS" -gt 1 ] && lipo "$lib" -thin "$LIPO_ARCH" -output "$lib" || true
           done
 
           echo "=== Recursively resolving all native dependencies ==="
