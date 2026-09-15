@@ -387,6 +387,21 @@ stages:
           mkdir -p "$APP_DIR/usr/lib/qml"
           cp -a "$BUILD_DIR/qml/." "$APP_DIR/usr/lib/qml/"
 
+          echo "=== Copying Qt MultimediaQuick (QtMultimedia QML plugin dependency) ==="
+          # The QtMultimedia QML module's plugin links against libQt6MultimediaQuick
+          # (Qt >= 6.8), which the executable does not link itself. Copy it
+          # explicitly so the AppImage ships it regardless of linuxdeploy's
+          # dependency scan; without it the QML plugin fails to load and the Qt
+          # QML video backend (VideoOutput) is unavailable at runtime.
+          MMQ_LIB_DIR="/opt/Qt/$(qt_version)/gcc_64/lib"
+          if [ -f "$MMQ_LIB_DIR/libQt6MultimediaQuick.so.6" ]; then
+              cp "$MMQ_LIB_DIR/libQt6MultimediaQuick.so.6" "$APP_DIR/usr/lib/"
+          elif [ -f "$MMQ_LIB_DIR/libQt6MultimediaQuick.so" ]; then
+              cp -L "$MMQ_LIB_DIR/libQt6MultimediaQuick.so" "$APP_DIR/usr/lib/libQt6MultimediaQuick.so.6"
+          else
+              echo "WARNING: libQt6MultimediaQuick not found in $MMQ_LIB_DIR (QtMultimedia QML backend may not work)"
+          fi
+
           echo "=== Copying Wayland platform plugins ==="
           mkdir -p "$APP_DIR/usr/plugins/platforms"
           cp /opt/Qt/$(qt_version)/gcc_64/plugins/platforms/libqwayland*.so \

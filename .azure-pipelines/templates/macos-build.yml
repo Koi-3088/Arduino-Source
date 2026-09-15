@@ -293,6 +293,30 @@ stages:
               echo "WARNING: GCC runtime not found at $GCC_LIB_PATH"
           fi
 
+          echo "=== Copying Qt MultimediaQuick (QtMultimedia QML plugin dependency) ==="
+          # The QtMultimedia QML module's plugin (qml/QtMultimedia) links against
+          # Qt6MultimediaQuick (Qt >= 6.8), which the executable does not link
+          # itself, so it is not among the Qt frameworks copied above. Without it
+          # the QML plugin fails to load and the Qt QML video backend (VideoOutput)
+          # is unavailable at runtime.
+          if [ -d "$QT_LIB/Qt6MultimediaQuick.framework" ]; then
+              cp -R "$QT_LIB/Qt6MultimediaQuick.framework" "$FW_DIR/"
+              MMQ_BIN="$FW_DIR/Qt6MultimediaQuick.framework/Versions/A/Qt6MultimediaQuick"
+              if [ -f "$MMQ_BIN" ]; then
+                  NUM_ARCHS=$(lipo -archs "$MMQ_BIN" 2>/dev/null | wc -w | tr -d ' ')
+                  [ "$NUM_ARCHS" -gt 1 ] && lipo "$MMQ_BIN" -thin "$LIPO_ARCH" -output "$MMQ_BIN" || true
+              fi
+          elif [ -f "$QT_LIB/libQt6MultimediaQuick.dylib" ]; then
+              cp "$QT_LIB/libQt6MultimediaQuick.dylib" "$FW_DIR/"
+              NUM_ARCHS=$(lipo -archs "$FW_DIR/libQt6MultimediaQuick.dylib" 2>/dev/null | wc -w | tr -d ' ')
+              [ "$NUM_ARCHS" -gt 1 ] && lipo "$FW_DIR/libQt6MultimediaQuick.dylib" -thin "$LIPO_ARCH" -output "$FW_DIR/libQt6MultimediaQuick.dylib" || true
+          else
+              echo "WARNING: Qt6MultimediaQuick not found in $QT_LIB"
+          fi
+          # Included in the Qt framework loops below (install IDs, refs). The loops
+          # skip it safely when it shipped as a flat dylib instead of a framework.
+          QT_FRAMEWORKS="$QT_FRAMEWORKS MultimediaQuick"
+
           echo "=== Fixing all install IDs and references ==="
           fix_refs() {
               local binary="$1"

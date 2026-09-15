@@ -884,6 +884,26 @@ if (WIN32)
         )
     endforeach()
 
+    # The QtMultimedia QML module's plugin (qml/QtMultimedia/quickmultimediaplugin)
+    # links against Qt6MultimediaQuick (Qt >= 6.8), which the executable does not
+    # link itself, so windeployqt never deploys it. Without it the QML plugin fails
+    # to load and the Qt QML video backend (VideoOutput) is unavailable at runtime.
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(QML_PLUGIN_EXTRA_DLL "${_qt_prefix}/bin/Qt6MultimediaQuickd.dll")
+    else()
+        set(QML_PLUGIN_EXTRA_DLL "${_qt_prefix}/bin/Qt6MultimediaQuick.dll")
+    endif()
+    if (EXISTS "${QML_PLUGIN_EXTRA_DLL}")
+        get_filename_component(QML_PLUGIN_EXTRA_DLL_NAME "${QML_PLUGIN_EXTRA_DLL}" NAME)
+        add_custom_command(
+            TARGET SerialPrograms POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E echo "[Deploy] Copying Qt QML plugin dependency ${QML_PLUGIN_EXTRA_DLL_NAME}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${QML_PLUGIN_EXTRA_DLL}" "${WIN_DEPLOY_DIR}/${QML_PLUGIN_EXTRA_DLL_NAME}"
+        )
+    else()
+        message(STATUS "Qt6MultimediaQuick not found at ${QML_PLUGIN_EXTRA_DLL}; QtMultimedia QML module may fail to load")
+    endif()
+
     # Final target that depends on all deployment steps
     add_custom_target(DeployRuntime ALL
         DEPENDS SerialPrograms clone_packages run_windeployqt
